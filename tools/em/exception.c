@@ -1441,9 +1441,9 @@ static void em_print_info_external_detailed(unsigned long time, unsigned long na
 	/* hook: off -> on */
 	em_dump_vwrite_hook = em_vprintk_external;
 
-	em_dump_exception(0, NULL);
 	em_dump_log(CONFIG_SNSC_EM_LOGFILE_LOG_MAX_LINES, NULL);
 	em_dump_write(" [%6lu.%06lu] Exception happened\n", time, nanosec_rem / 1000);
+	em_dump_exception(0, NULL);
 
 	/* hook: on -> off */
 	em_dump_vwrite_hook = NULL;

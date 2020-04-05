@@ -56,6 +56,9 @@ static unsigned long sm_base;
 static unsigned long sm_asserted_watchdog_flag = 0;
 #define SM_ASSERTED_WATCHDOG_BIT (0)
 
+typedef void (*wdt_cb_t)(void);
+static wdt_cb_t wdt_cb = NULL;
+
 typedef union {
 	unsigned int u32;
 	struct w32smSysCtl_SM_CTRL;
@@ -356,8 +359,13 @@ static irqreturn_t bsm_intr(int irq, void *dev_id)
 
 	if(0xAEEDACD0 == readl(SOC_DTCM(SM_DTCM_ASSERTED_WATCHDOG))) {
 		writel(0, SOC_DTCM(SM_DTCM_ASSERTED_WATCHDOG));
-		if(!test_and_set_bit(SM_ASSERTED_WATCHDOG_BIT, &sm_asserted_watchdog_flag))
-			panic("sm asserted watchdog!");
+		if(!test_and_set_bit(SM_ASSERTED_WATCHDOG_BIT, &sm_asserted_watchdog_flag)) {
+			if( wdt_cb ) {
+				wdt_cb();
+			} else {
+				panic("sm asserted watchdog!");
+			}
+		}
 	}
 
 	bsm_msg_dispatch();
@@ -679,6 +687,22 @@ int sm_get_ex_mem_size(void)
 	return SM_ITCM_SOC_USE_SIZE;
 }
 EXPORT_SYMBOL(sm_get_ex_mem_size);
+
+int sm_register_wdt_callback( void (*cb_func)(void) )
+{
+	if(cb_func) {
+		wdt_cb = cb_func;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(sm_register_wdt_callback);
+
+int sm_unregister_wdt_callback(void)
+{
+	wdt_cb = NULL;
+	return 0;
+}
+EXPORT_SYMBOL(sm_unregister_wdt_callback);
 
 MODULE_AUTHOR("Marvell-Galois");
 MODULE_DESCRIPTION("System Manager Driver");
