@@ -98,13 +98,24 @@ int tzc_invoke_command(int tzc, int task_id, uint32_t cmd_id,
 {
 	uint32_t call_id = param;
 	struct tz_nw_comm cc;
-	struct tz_nw_task_client *tc = tz_nw_task_client_get(task_id);
+	struct tz_nw_task_client *tc = NULL;
 	void *kernel_dev_file = tzd_get_kernel_dev_file();
 	int ret;
 
 	cc.call.task_id = task_id;
 	cc.call.cmd_id = cmd_id;
 	cc.call.param = param;
+
+	/* Try to get task context if previous call is not completed. */
+	tc = tz_nw_task_client_get_with_callid(task_id, call_id);
+	if (!tc) {
+		tc = tz_nw_task_client_get(task_id);
+	}
+
+	if (!tc) {
+		tz_error("tc not allocated (call_id = 0x%x, task_id = 0x%x\n", call_id, task_id);
+		return TZ_ERROR_ITEM_NOT_FOUND;
+	}
 
 	while (1) {
 		ret = tz_nw_comm_invoke_command(tc, &cc, call_id, kernel_dev_file);
@@ -133,7 +144,16 @@ int tzc_invoke_command(int tzc, int task_id, uint32_t cmd_id,
 	if (origin)
 		*origin = cc.call.origin;
 
-	tz_nw_task_client_release(task_id, tc);
+	/* cleanup task context */
+	if (ret != TZ_PENDING) {
+		tc->call_id = 0;
+		tc->state = TZ_NW_TASK_STATE_IDLE;
+	}
+
+	/* If TZMGR's call is not completed, we should keep task context. */
+	if (!(ret == TZ_PENDING && task_id == TZ_TASK_ID_MGR)) {
+		tz_nw_task_client_release(task_id, tc);
+	}
 
 	return cc.call.result;
 }

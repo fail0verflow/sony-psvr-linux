@@ -31,9 +31,12 @@
 #include "log.h"
 #include "smc.h"
 
+
 #ifndef __KERNEL__
 # define tz_nw_comm_invoke_command_nolock	tz_nw_comm_invoke_command
 #endif
+
+static int s_mgr_task_occupied = 0;
 
 uint32_t tz_nw_comm_invoke_command_nolock(struct tz_nw_task_client *tc,
 		struct tz_nw_comm *cc, uint32_t call_id, void *call_info)
@@ -81,11 +84,12 @@ uint32_t tz_nw_comm_invoke_command_nolock(struct tz_nw_task_client *tc,
 		param0 = cc->call.param;
 		param1 = call_id;
 #ifndef __KERNEL__
-		spin_lock(&tc->lock);
+		spin_lock(tc->lock);
 #endif
 	}
 	trace("enter. to %d (state=%d), cmd=%d, param0=0x%08x, param1=0x%08x\n",
 		cc->call.task_id, tc->state, cmd, param0, param1);
+
 
 	tc->state = TZ_NW_TASK_STATE_INVOKING;
 
@@ -105,7 +109,7 @@ uint32_t tz_nw_comm_invoke_command_nolock(struct tz_nw_task_client *tc,
 			tc->state = TZ_NW_TASK_STATE_IDLE;
 			result = TZ_SUCCESS;
 #ifndef __KERNEL__
-			spin_unlock(&tc->lock);
+			spin_unlock(tc->lock);
 #endif
 			break;
 		}
@@ -138,6 +142,7 @@ uint32_t tz_nw_comm_invoke_command_nolock(struct tz_nw_task_client *tc,
 			 * callback to user space.
 			 */
 			if (cb_result == TZ_ERROR_NOT_SUPPORTED) {
+
 				cc->callback.cmd_id = ret.cb.cmd_id;
 				cc->callback.param = ret.cb.param;
 				tc->state = TZ_NW_TASK_STATE_CALLBACK;
@@ -179,29 +184,42 @@ uint32_t tz_nw_comm_invoke_command(struct tz_nw_task_client *tc,
 		/* By design, for IRQ the task is singleton and should
 		 * prevent concurrent access, otherwise result is undefined
 		 */
-		spin_lock(&tc->lock);
+
+		spin_lock(tc->lock);
 		tc->call_info = call_info;
 		tc->atomic = true;
 		res = tz_nw_comm_invoke_command_nolock(tc, cc, call_id, NULL);
-		spin_unlock(&tc->lock);
+		spin_unlock(tc->lock);
 	} else {
 		DECLARE_WAITQUEUE(wait, current);
 
-		spin_lock(&tc->lock);
+		spin_lock(tc->lock);
 		tc->atomic = false;
-		add_wait_queue(&tc->waitq, &wait);
+		add_wait_queue(tc->waitq, &wait);
 		for (;;) {
 			set_current_state(TASK_INTERRUPTIBLE);
-			if (tc->state == TZ_NW_TASK_STATE_IDLE) {
+
+			/* 
+			 * TZMGR's call should be issued only when other TZMGR's call is not proceeding.
+			 * If task state is TZ_NW_TASK_STATE_CALLBACK, we deal with call is
+			 * not completed, and put off next TZMGR's call until previous call
+			 * is completed.
+			 */
+			if (tc->state == TZ_NW_TASK_STATE_IDLE &&
+				(tc->task_id != TZ_TASK_ID_MGR || !s_mgr_task_occupied)) {
 				/* now own it */
+				if (tc->task_id == TZ_TASK_ID_MGR) {
+					s_mgr_task_occupied = 1;
+				} 
 				tc->state = TZ_NW_TASK_STATE_INVOKING;
 				tc->call_id = call_id; /* save task identity */
 				tc->call_info = call_info;
 				break;
 			} else if (tc->state == TZ_NW_TASK_STATE_CALLBACK) {
 				/* check if we are the owner */
-				if (tc->call_id == call_id)
+				if (tc->call_id == call_id) {
 					break;
+				}
 			}
 			/* no schedule should happen if irq is disabled */
 			if (irqs_disabled()) {
@@ -209,13 +227,13 @@ uint32_t tz_nw_comm_invoke_command(struct tz_nw_task_client *tc,
 				res = TZ_ERROR_BAD_STATE;
 				break;
 			}
-			spin_unlock(&tc->lock);
+			spin_unlock(tc->lock);
 			schedule();
-			spin_lock(&tc->lock);
+			spin_lock(tc->lock);
 		}
 		set_current_state(TASK_RUNNING);
-		remove_wait_queue(&tc->waitq, &wait);
-		spin_unlock(&tc->lock);
+		remove_wait_queue(tc->waitq, &wait);
+		spin_unlock(tc->lock);
 
 		if (res != TZ_SUCCESS)
 			return res;
@@ -226,7 +244,13 @@ uint32_t tz_nw_comm_invoke_command(struct tz_nw_task_client *tc,
 			BUG_ON(tc->call_id != call_id);
 		} else {
 			BUG_ON(res != TZ_SUCCESS);
-			wake_up_interruptible(&tc->waitq);
+			wake_up_interruptible(tc->waitq);
+		}
+	}
+
+	if (tc->task_id == TZ_TASK_ID_MGR && res == TZ_SUCCESS) {
+		if (s_mgr_task_occupied) {
+			s_mgr_task_occupied = 0;
 		}
 	}
 

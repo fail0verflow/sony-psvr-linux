@@ -47,14 +47,10 @@
 #define CORE_VOLTAGE_NUM(a)     (sizeof(a) / sizeof(struct cpm_core_voltage_tbl))
 
 static struct cpm_core_voltage_tbl bg2dtv_core_voltage[] = {
-    {384,           1150,       1175,       1250},
-    {576,           1125,       1150,       1225},
-    {768,           1100,       1125,       1200},
-    {960,           1075,       1100,       1175},
-    {1152,          1050,       1075,       1150},
-    {1344,          1025,       1050,       1125},
-    {1536,          1000,       1025,       1100},
-    {9999,          975,        1000,       1075},
+    {0,            1250,       1250,       1250},
+    {400,          1290,       1320,       1320},
+    {600,          1260,       1290,       1290},
+    {9999,         1230,       1260,       1260},
 };
 
 #define CORE_SPEC_NUM(a)     (sizeof(a) / sizeof(struct cpm_core_mod_spec))

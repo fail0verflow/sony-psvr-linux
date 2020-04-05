@@ -72,8 +72,4 @@ VOID aout_stop_cmd(AOUT_CTX *hAoutCtx, INT path_id);
 VOID aout_resume_cmd(AOUT_CTX *hAoutCtx, INT path_id);
 irqreturn_t amp_devices_aout_isr(int irq, void *dev_id);
 
-VOID *AoutFifoGetKernelRdDMAInfo(AOUT_PATH_CMD_FIFO * p_aout_cmd_fifo,	INT pair);
-VOID AoutFifoKernelRdUpdate(AOUT_PATH_CMD_FIFO * p_aout_cmd_fifo, INT adv);
-INT AoutFifoCheckKernelFullness(AOUT_PATH_CMD_FIFO * p_aout_cmd_fifo);
-
 #endif    //_DRV_AOUT_H_

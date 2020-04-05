@@ -29,7 +29,7 @@
 
 #ifndef HAL_DHUB_WRAP_H
 #define HAL_DHUB_WRAP_H
-/** DHUB_API wrap for normal and truzt zone
+/** DHUB_API wrap for normal and trust zone
  */
 
 #include "ctypes.h"

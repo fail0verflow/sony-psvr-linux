@@ -47,6 +47,9 @@ static void *s_tz_nw_task_mutex = NULL;
 static uint32_t s_task_client_used_map[ROUND_UP(CONFIG_TASK_NUM, sizeof(uint32_t))/sizeof(uint32_t)] = {0x0};
 
 static struct tz_nw_task_client tz_nw_task_client[CONFIG_TASK_NUM];
+static spinlock_t tz_nw_task_spinlock[CONFIG_TASK_NUM];
+static wait_queue_head_t tz_nw_task_waitqueue[CONFIG_TASK_NUM];
+
 
 #define CONFIG_MGR_TASK_NUM 32
 static uint32_t s_mgr_task_client_used_map = 0x0;
@@ -66,6 +69,36 @@ static struct tz_nw_task_client *tz_nw_mgr_task_client_get(void)
 			ret = &tz_nw_mgr_task_client[i];
 			//error("[%s] allocate tz_nw_mgr_task_client[%d] = 0x%08x\n", 
 			//	  __FUNCTION__, i, ret);
+			break;
+		}
+	}
+	if (!ret) {
+		//error("[%s] not allocate tz_nw_mgr_task_client\n", __FUNCTION__);
+	}
+
+	return ret;
+}
+
+
+/* 
+ * allocate task context which is previously used. 
+ * The task context is not released if TZMGR' call is not finished.
+ * This is only for TZMGR's call.
+ */
+static struct tz_nw_task_client *tz_nw_mgr_task_client_get_with_callid(uint32_t call_id)
+{
+	struct tz_nw_task_client *ret = NULL;
+	unsigned int i;
+	uint32_t mask;
+
+	for (i = 0; i < CONFIG_MGR_TASK_NUM; i++) {
+		mask = 0x1 << i;
+		if ((mask & s_mgr_task_client_used_map) && 
+			(tz_nw_mgr_task_client[i].call_id == call_id) &&
+			(tz_nw_mgr_task_client[i].state == TZ_NW_TASK_STATE_CALLBACK)) {
+			ret = &tz_nw_mgr_task_client[i];
+			//error("[%s] allocate tz_nw_mgr_task_client_with_callid[%d] = 0x%08x (call_id = 0x%x)\n", 
+			//	  __FUNCTION__, i, ret, call_id);
 			break;
 		}
 	}
@@ -158,6 +191,36 @@ struct tz_nw_task_client *tz_nw_task_client_get(int task_id)
 	return ret;
 }
 
+struct tz_nw_task_client *tz_nw_task_client_get_with_callid(int task_id, uint32_t call_id)
+{
+	struct tz_nw_task_client *ret = NULL;
+
+	assert(0 <= task_id && task_id < CONFIG_TASK_NUM);
+
+	if (!(0 <= task_id && task_id < CONFIG_TASK_NUM)) {
+		return NULL;
+	}
+
+	if (!s_tz_nw_task_mutex) {
+		return NULL;
+	}
+
+	if (tzc_mutex_lock(s_tz_nw_task_mutex) != TZ_SUCCESS) {
+		return NULL;
+	}
+	
+	if (task_id == TZ_TASK_ID_MGR) {
+		ret = tz_nw_mgr_task_client_get_with_callid(call_id);
+	} else {
+		ret = NULL;
+	}
+
+	(void)tzc_mutex_unlock(s_tz_nw_task_mutex);
+
+	return ret;
+}
+
+
 static struct tz_nw_task_client *tz_nw_task_client_init(int task_id)
 {
 	struct tz_nw_task_client *tc = &tz_nw_task_client[task_id];
@@ -172,11 +235,14 @@ static struct tz_nw_task_client *tz_nw_task_client_init(int task_id)
 	/* by default, we set default callback to tz_nw_sys_callback */
 	tc->callback = tz_nw_sys_callback;
 	tc->userdata = tc;
+	tc->state = TZ_NW_TASK_STATE_IDLE;
+	tc->lock = &tz_nw_task_spinlock[task_id];
 
-	spin_lock_init(&tc->lock);
+	spin_lock_init(tc->lock);
 
+	tc->waitq = &tz_nw_task_waitqueue[task_id];
 #ifdef __KERNEL__
-	init_waitqueue_head(&tc->waitq);
+	init_waitqueue_head(tc->waitq);
 #endif
 
 	return tc;
@@ -196,11 +262,13 @@ static void tz_nw_mgr_task_client_init(int id)
 	/* by default, we set default callback to tz_nw_sys_callback */
 	tc->callback = tz_nw_sys_callback;
 	tc->userdata = tc;
+	tc->state = TZ_NW_TASK_STATE_IDLE;
 
-	spin_lock_init(&tc->lock);
+	tc->lock = &tz_nw_task_spinlock[TZ_TASK_ID_MGR];
+	tc->waitq = &tz_nw_task_waitqueue[TZ_TASK_ID_MGR];
 
 #ifdef __KERNEL__
-	init_waitqueue_head(&tc->waitq);
+	//init_waitqueue_head(&tc->waitq);
 #endif
 
 	return;
@@ -213,6 +281,7 @@ int tz_nw_task_client_init_all(void)
 	for (i = 0; i < CONFIG_TASK_NUM; i++) {
 		tz_nw_task_client_init(i);
 	}
+
 	for (i = 0; i < CONFIG_MGR_TASK_NUM; i++) {
 		tz_nw_mgr_task_client_init(i);
 	}

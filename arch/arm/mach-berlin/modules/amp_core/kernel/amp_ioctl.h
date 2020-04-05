@@ -116,13 +116,14 @@ typedef struct aout_dma_info_t {
 	UINT32 size1;
 } AOUT_DMA_INFO;
 
+#define AOUT_PATH_CMD_FIFO_COUNT 8u
 typedef struct aout_path_cmd_fifo_t {
-	AOUT_DMA_INFO aout_dma_info[4][8];
-	UINT32 update_pcm[8];
-	UINT32 takeout_size[8];
-	UINT32 size;
+	AOUT_DMA_INFO aout_dma_info[4][AOUT_PATH_CMD_FIFO_COUNT];
+	UINT32 dummy1[AOUT_PATH_CMD_FIFO_COUNT];
+	UINT32 dummy2[AOUT_PATH_CMD_FIFO_COUNT];
+	UINT32 dummy3;
 	UINT32 wr_offset;
-	UINT32 rd_offset;
+	UINT32 dummy4;
 	UINT32 kernel_rd_offset;
 	UINT32 zero_buffer;
 	UINT32 zero_buffer_size;
@@ -136,11 +137,12 @@ typedef struct aip_dma_cmd_t {
 	UINT32 size1;
 } AIP_DMA_CMD;
 
+#define AIP_PATH_CMD_FIFO_COUNT 8u
 typedef struct aip_cmd_fifo_t {
-	AIP_DMA_CMD aip_dma_cmd[4][8];
-	UINT32 update_pcm[8];
-	UINT32 takein_size[8];
-	UINT32 size;
+	AIP_DMA_CMD aip_dma_cmd[4][AIP_PATH_CMD_FIFO_COUNT];
+	UINT32 update_pcm[AIP_PATH_CMD_FIFO_COUNT];
+	UINT32 takein_size[AIP_PATH_CMD_FIFO_COUNT];
+	UINT32 dummy1;
 	UINT32 wr_offset;
 	UINT32 rd_offset;
 	UINT32 kernel_rd_offset;

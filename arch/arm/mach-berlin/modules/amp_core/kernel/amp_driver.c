@@ -692,48 +692,24 @@ amp_driver_ioctl_unlocked(struct file *filp, UINT cmd,
 		}
 		printk("Destroyed ISR Task...\r\n");
 #ifdef MORPHEUS_TV_VIEW_MODE
-		{
-		    extern int vip_stable_isr;
-			extern int vip_stable;
-			extern int vpp_res_set;
-			extern int vpp_cpcb0_res;
-			extern int vpp_4k_res;
-			extern TG_CHANGE_STATE tg_changed;
-			extern long long vip_isr_count;
-			extern long long cur_vip_isr_count;
-			extern long long vpp_isr_count;
-			extern long long cur_vpp_isr_count;
-			amp_trace("*** timeline info ***\n");
-			vip_stable_isr = 0;
-			vip_stable = 0;
-		    vpp_res_set = 0;
-		    vpp_cpcb0_res = -1;
-		    vpp_4k_res = -1;
-			tg_changed = TG_CHANGE_STATE_CHECK;
-			vip_isr_count = 0;
-			cur_vip_isr_count = 0;
-			vpp_isr_count = 0;
-			cur_vpp_isr_count = 0;
-			reset_adjust(1);
-		}
+		amp_trace("*** timeline info ***\n");
+		vip_stable_isr = 0;
+		vip_stable = 0;
+		vpp_res_set = 0;
+		vpp_cpcb0_res = -1;
+		vpp_4k_res = -1;
+		tg_changed = TG_CHANGE_STATE_CHECK;
+		vip_isr_count = 0;
+		cur_vip_isr_count = 0;
+		vpp_isr_count = 0;
+		cur_vpp_isr_count = 0;
+		reset_adjust(1);
 #endif
 		break;
 	}
 #ifdef MORPHEUS_TV_VIEW_MODE
 	case AVIF_IOCTL_SEND_MSG_TV_VIEW:
 	{
-		extern int video_mode;
-		extern int vip_stable_isr;
-		extern int vip_stable;
-		extern int vpp_res_set;
-		extern int vpp_cpcb0_res;
-		extern int vpp_4k_res;
-		extern TG_CHANGE_STATE tg_changed;
-		extern long long vip_isr_count;
-		extern long long cur_vip_isr_count;
-		extern long long vpp_isr_count;
-		extern long long cur_vpp_isr_count;
-
 		MSG_TV_VIEW avif_msg = {0, 0, 0};
 		if (copy_from_user(&avif_msg, (void __user *)arg, sizeof(MSG_TV_VIEW)))
 			return -EFAULT;
@@ -745,6 +721,12 @@ amp_driver_ioctl_unlocked(struct file *filp, UINT cmd,
 		} else if (avif_msg.msg_type == AVIF_MSG_NOTIFY_VPP_RES_SET) {
 			amp_trace("VPP res set done. vpp_cpcb0_res %d, vpp_4k_res %d\n",
 					avif_msg.para0, avif_msg.para1);
+			if ((unsigned)avif_msg.para0 >= MAX_NUM_RESS ||
+				(avif_msg.para1 != -1 &&
+				 (unsigned)avif_msg.para1 >= MAX_NUM_RESS)) {
+				// just ignore
+				break;
+			}
 			vpp_res_set = 1;
 			vpp_cpcb0_res = avif_msg.para0;
 			vpp_4k_res = avif_msg.para1;
@@ -808,8 +790,6 @@ amp_driver_ioctl_unlocked(struct file *filp, UINT cmd,
 #ifdef MORPHEUS_TV_VIEW_MODE
 	case AVIF_IOCTL_GET_AVIF_VPP_DRIFT_INFO:
 	{
-		extern spinlock_t drift_countlock;
-		extern DRIFT_INFO vip_vpp_drift_info;
 		DRIFT_INFO internal_vip_vpp_drift_info = {0};
 
 		spin_lock_irqsave(&drift_countlock, irqstat);
@@ -930,13 +910,17 @@ amp_driver_ioctl_unlocked(struct file *filp, UINT cmd,
 		break;
 	}
 #endif
-    case AVIF_HRX_IOCTL_SET_FACTORY:
-    {
-        UINT32 *mode = (UINT32 *)arg;
-        hAvifCtx->factory_mode = *mode;
-        printk("Set factory mode: %d\r\n", hAvifCtx->factory_mode);
-        break;
-    }
+	case AVIF_HRX_IOCTL_SET_FACTORY:
+	{
+		INT mode;
+		if (copy_from_user(&mode, (VOID __user *)arg, sizeof(INT)))
+			return -EFAULT;
+
+		hAvifCtx->factory_mode = mode;
+		printk("Set factory mode: %d\r\n", hAvifCtx->factory_mode);
+		break;
+	}
+
 	case AVIF_VDEC_IOCTL_GET_MSG:
 	{
 		MV_CC_MSG_t msg = { 0 };

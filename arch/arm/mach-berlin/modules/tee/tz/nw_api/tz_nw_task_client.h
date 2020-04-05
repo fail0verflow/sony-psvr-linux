@@ -52,9 +52,9 @@ struct tz_nw_task_client {
 	int state;
 	uint32_t call_id;
 	void *call_info;
-	spinlock_t lock;	/* protect waitq */
+	spinlock_t *lock;	/* protect waitq */
 #ifdef __KERNEL__
-	wait_queue_head_t waitq;
+	wait_queue_head_t *waitq;
 #endif
 	tz_cmd_handler callback;
 	void *userdata;
@@ -63,6 +63,7 @@ struct tz_nw_task_client {
 
 
 struct tz_nw_task_client *tz_nw_task_client_get(int task_id);
+struct tz_nw_task_client *tz_nw_task_client_get_with_callid(int task_id, uint32_t call_id);
 void tz_nw_task_client_release(int task_id, struct tz_nw_task_client *tc);
 
 int tz_nw_task_client_init_all(void);

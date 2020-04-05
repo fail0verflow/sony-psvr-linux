@@ -1966,7 +1966,7 @@ static int dwc3_cleanup_done_reqs(struct dwc3 *dwc, struct dwc3_ep *dep,
 			 * flag, so that END TRANSFER is issued when an
 			 * entry is added into request list.
 			 */
-			dep->flags = DWC3_EP_PENDING_REQUEST;
+			dep->flags |= DWC3_EP_PENDING_REQUEST;
 		} else {
 			dwc3_stop_active_transfer(dwc, dep->number, true);
 			dep->flags = DWC3_EP_ENABLED;

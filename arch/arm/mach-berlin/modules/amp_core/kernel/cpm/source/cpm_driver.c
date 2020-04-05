@@ -180,13 +180,13 @@ static struct file_operations cpm_ops = {
 };
 
 
-struct cpm_device_t cpm_dev = {
+static struct cpm_device_t cpm_dev = {
     .dev_name = CPM_DEVICE_NAME,
     .minor = CPM_MINOR,
     .fops = &cpm_ops,
 };
 
-struct regulator *vcore_reg = NULL;
+static struct regulator *vcore_reg = NULL;
 
 static const TEEC_UUID TACpm_UUID = TA_CPM_UUID;
 
@@ -555,37 +555,7 @@ static void cpm_get_core_regulator(void)
 }
 
 
-static int cpm_get_temp(int* temp)
-{
-    TEEC_Result result;
-
-    CHECK_TEE_INIT(TEEC_ERROR_BAD_STATE);
-
-    CHECK_VALID_POINTER(temp);
-
-    mutex_lock(&cpm_mutex);
-
-    cpm_ca.op.started = 1;
-    cpm_ca.op.paramTypes = TEEC_PARAM_TYPES(
-            TEEC_NONE,
-            TEEC_NONE,
-            TEEC_NONE,
-            TEEC_VALUE_OUTPUT);
-
-    result = TEEC_InvokeCommand(
-            &cpm_ca.session,
-            CPM_GET_TEMP,
-            &cpm_ca.op,
-            NULL);
-
-    *temp = cpm_ca.op.params[3].value.a;
-
-    mutex_unlock(&cpm_mutex);
-
-    return result;
-}
-
-static int cpm_update_core_voltage(void)
+static int cpm_update_core_voltage(unsigned int voltage_status)
 {
     int voltage, res;
 
@@ -597,10 +567,10 @@ static int cpm_update_core_voltage(void)
 
     mutex_lock(&cpm_mutex);
 
-    if(core_voltage_status == CPM_CORE_VOLTAGE_LOW){
+    if(voltage_status == CPM_CORE_VOLTAGE_LOW){
         voltage = core_voltage_tbl[group].low_voltage;
     }
-    else if(core_voltage_status == CPM_CORE_VOLTAGE_MIDDLE){
+    else if(voltage_status == CPM_CORE_VOLTAGE_MIDDLE){
         voltage = core_voltage_tbl[group].middle_voltage;
     }
     else{
@@ -612,6 +582,7 @@ static int cpm_update_core_voltage(void)
 
     res = regulator_set_voltage(vcore_reg, voltage, voltage);
 
+	core_voltage_status = voltage_status;
     mutex_unlock(&cpm_mutex);
 
     return res;
@@ -620,30 +591,10 @@ static int cpm_update_core_voltage(void)
 static int cpm_update_core_clk(struct cpm_core_mod_spec *module)
 {
     TEEC_Result     result;
-    int             res;
 
     CHECK_TEE_INIT(TEEC_ERROR_BAD_STATE);
 
     cpm_trace("set %s clock to %s",module->name, module->request?"H":"L");
-
-    if(module->chg_gfx == CPM_CHANGE_GFX2_CLK_SRC){
-        if(gfxcallback.before_change != NULL){
-            res = gfxcallback.before_change(gfxcallback.gfx, CPM_GFX2D_CALLBACK);
-            CHECK_RESULT(res);
-        }
-        else{
-            cpm_trace("No GFX2 before change callback");
-        }
-    }
-    if(module->chg_gfx == CPM_CHANGE_GFX3_CLK_SRC){
-        if(gfxcallback.before_change != NULL){
-            res = gfxcallback.before_change(gfxcallback.gfx, CPM_GFX3D_CALLBACK);
-            CHECK_RESULT(res);
-        }
-        else{
-            cpm_trace("No GFX3 before change callback");
-        }
-    }
 
     mutex_lock(&cpm_mutex);
 
@@ -665,67 +616,17 @@ static int cpm_update_core_clk(struct cpm_core_mod_spec *module)
 
     mutex_unlock(&cpm_mutex);
 
-    if(module->chg_gfx == CPM_CHANGE_GFX2_CLK_SRC){
-        if(gfxcallback.after_change != NULL){
-            res = gfxcallback.after_change(gfxcallback.gfx, CPM_GFX2D_CALLBACK);
-            CHECK_RESULT(res);
-        }
-        else{
-            cpm_trace("No GFX2 after change callback");
-        }
-    }
-    if(module->chg_gfx == CPM_CHANGE_GFX3_CLK_SRC){
-        if(gfxcallback.after_change != NULL){
-            res = gfxcallback.after_change(gfxcallback.gfx, CPM_GFX3D_CALLBACK);
-            CHECK_RESULT(res);
-        }
-        else{
-            cpm_trace("No GFX3 after change callback");
-        }
-    }
-
     return result;
-}
-
-static int cpm_get_core_voltage_status(void)
-{
-    unsigned int i;
-    unsigned int status = CPM_CORE_VOLTAGE_LOW;
-
-    for (i = 0; i < cur_core_tbl->num_modules; i++) {
-        if(cur_core_tbl->mod_spec[i].ignore == CPM_REQUEST_IGNORE_OFF){
-            if (cur_core_tbl->mod_spec[i].request != CPM_REQUEST_CORE_LOW) {
-                if(strcmp("GFX2", cur_core_tbl->mod_spec[i].name) == 0){
-                    continue;
-                }
-                if(strcmp("GFX3", cur_core_tbl->mod_spec[i].name) == 0){
-                    status = CPM_CORE_VOLTAGE_HIGH;
-                    break;
-                }
-                else{
-                    status = CPM_CORE_VOLTAGE_MIDDLE;
-                }
-            }
-        }
-    }
-    return status;
 }
 
 static int cpm_check_core_request(struct cpm_core_mod_spec *module)
 {
-    unsigned int status, res;
+    unsigned int res;
 
     CHECK_CORE_TABLE(-EFAULT);
 
-    if(module->ignore == CPM_REQUEST_IGNORE_ON) {
-        return 0;
-    }
-
-    status = cpm_get_core_voltage_status();
-
-    if(status > core_voltage_status){
-        core_voltage_status = status;
-        res = cpm_update_core_voltage();
+    if(module->request == CPM_REQUEST_CORE_HIGH){
+        res = cpm_update_core_voltage(CPM_CORE_VOLTAGE_HIGH);
         CHECK_RESULT(res);
         res = cpm_update_core_clk(module);
         CHECK_RESULT(res);
@@ -733,11 +634,8 @@ static int cpm_check_core_request(struct cpm_core_mod_spec *module)
     else{
         res = cpm_update_core_clk(module);
         CHECK_RESULT(res);
-        if(status != core_voltage_status){
-            core_voltage_status = status;
-            res = cpm_update_core_voltage();
-            CHECK_RESULT(res);
-        }
+        res = cpm_update_core_voltage(CPM_CORE_VOLTAGE_LOW);
+        CHECK_RESULT(res);
     }
     return 0;
 }
@@ -782,11 +680,8 @@ int cpm_set_core_mode(char *name, unsigned int request)
         cpm_trace("%s(%s, request core to %s)", __FUNCTION__,
                     name, request ? "H": "L");
 
-        if(module->request != request){
             module->request = request;
             return cpm_check_core_request(module);
-        }
-        return 0;
     }
 
     cpm_error("%s Module not found! [%s]", __FUNCTION__, name);
@@ -865,67 +760,23 @@ static int cpm_ignore_request(char *name, unsigned int ignore)
 
 static int cpm_init_core_status(void)
 {
-    unsigned int i, res;
+    unsigned int i;
 
     CHECK_CORE_TABLE(-EFAULT);
     CHECK_CORE_REGULATOR(-EFAULT);
     CHECK_TEE_INIT(TEEC_ERROR_BAD_STATE);
 
-    /* bsp set core voltage to high */
-
+	cpm_trace("%s: num_modules %d\n", __func__, cur_core_tbl->num_modules);
     for(i=0; i<cur_core_tbl->num_modules; i++){
-        res = cpm_update_core_clk(&cur_core_tbl->mod_spec[i]);
-        CHECK_RESULT(res);
+		cur_core_tbl->mod_spec[i].request = CPM_REQUEST_MAX;
     }
 
-    core_voltage_status = cpm_get_core_voltage_status();
-
-    res = cpm_update_core_voltage();
-    CHECK_RESULT(res);
-
     return 0;
-}
-
-static int cpm_timeout_task (void* unused)
-{
-    int rc;
-    while(!kthread_should_stop()){
-        rc = down_interruptible(&cpm_timer_sem);
-        if (rc < 0) {
-            continue;
-        }
-        if(gfxloading.gfx3d != NULL){
-            gfxloading.gfx3d->request = CPM_REQUEST_CORE_LOW;
-            cpm_check_core_request(gfxloading.gfx3d);
-        }
-    }
-    cpm_timer.res_alloc &= ~CPM_RES_TIMIER_TASK;
-    return 0;
-}
-
-static void cpm_timeout_call(unsigned long cpm)
-{
-    up(&cpm_timer_sem);
 }
 
 static int cpm_reset_timer(void)
 {
     mod_timer(&cpm_timer.cpm_timer, jiffies + GFX_LOW_TIME_OUT);
-    return 0;
-}
-
-static int cpm_temp_task (void* unused)
-{
-    int temp, res;
-    while(!kthread_should_stop()){
-        res = cpm_get_temp(&temp);
-        if(res == 0){
-            cpm_temp.temp = temp;
-            cpm_trace("temperature is %d deg", cpm_temp.temp);
-        }
-        msleep(3000);
-    }
-    cpm_temp.taskrunning = 0;
     return 0;
 }
 
@@ -1055,35 +906,6 @@ static void cpm_timer_finalize(void)
     cpm_timer.res_alloc = 0;
 }
 
-static int cpm_timer_initialize(void)
-{
-    if (cpm_timer.inited) {
-        cpm_trace("CPM timer has already been initialized!\n");
-        return 0;
-    }
-
-    cpm_timer.inited = 1;
-    init_timer(&cpm_timer.cpm_timer);
-    cpm_timer.cpm_timer.function = cpm_timeout_call;
-    cpm_timer.res_alloc |= CPM_RES_TIMIER;
-
-    sema_init(&cpm_timer_sem, 0);
-
-    cpm_timer.cpm_timer_handle = kthread_create(cpm_timeout_task,
-                                                NULL, "CPM Timer");
-    if (IS_ERR(cpm_timer.cpm_timer_handle)){
-        cpm_error("cpm create timer task failed\n");
-        goto _err_out;
-    }
-    wake_up_process(cpm_timer.cpm_timer_handle);
-    cpm_timer.res_alloc |= CPM_RES_TIMIER_TASK;
-    return 0;
-_err_out:
-    cpm_timer_finalize();
-    return -EFAULT;
-}
-
-
 static void cpm_temp_finalize(void)
 {
     if (cpm_temp.taskrunning != 1) {
@@ -1098,23 +920,6 @@ static void cpm_temp_finalize(void)
     }
 }
 
-static int cpm_temp_initialize(void)
-{
-    if (cpm_temp.taskrunning == 1) {
-        cpm_trace("CPM temperature task is already running!\n");
-        return 0;
-    }
-
-    cpm_temp.cpm_temp_handle = kthread_create(cpm_temp_task,
-                                    NULL, "CPM Temperature");
-    if (IS_ERR(cpm_temp.cpm_temp_handle)){
-        cpm_error("cpm create temperature task failed\n");
-        return -EFAULT;
-    }
-    wake_up_process(cpm_temp.cpm_temp_handle);
-    cpm_temp.taskrunning = 1;
-    return 0;
-}
 /*******************************************************************************
   Module API
   */
@@ -1129,17 +934,6 @@ static int cpm_driver_open(struct inode *inode, struct file *filp)
     }
     cpm_read_leakage_id();
 
-    result = cpm_timer_initialize();
-    if(result != 0){
-        cpm_trace("cpm_timer_initialize failed\n");
-        return result;
-    }
-
-    result = cpm_temp_initialize();
-    if(result != 0){
-        cpm_trace("cpm_temp_initialize failed\n");
-        return result;
-    }
     return 0;
 }
 

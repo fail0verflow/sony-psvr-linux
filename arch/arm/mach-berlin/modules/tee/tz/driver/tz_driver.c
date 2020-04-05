@@ -268,15 +268,37 @@ static int tzd_cmd_req(struct tzd_dev_file *dev, unsigned long arg)
 		return -EFAULT;
 	}
 
-	tc = tz_nw_task_client_get(cc.call.task_id);
+	call_id = current->pid;
+
+	/* Try to get task context if previous call is not completed. */
+	tc = tz_nw_task_client_get_with_callid(cc.call.task_id,  call_id);
 	if (!tc) {
+		tc = tz_nw_task_client_get(cc.call.task_id);
+	}
+
+	if (!tc) {
+		tz_error("tc not allocated (call_id = 0x%x, task_id = 0x%x\n", call_id, cc.call.task_id);
 		return TZ_ERROR_ITEM_NOT_FOUND;
 	}
 
-	call_id = current->pid;
 	ret = tz_nw_comm_invoke_command(tc, &cc, call_id, (void *)dev);
 
-	tz_nw_task_client_release(cc.call.task_id, tc); 
+	if (!(ret == TZ_SUCCESS || ret == TZ_PENDING)) {
+		tz_error("result = 0x%x, call_id = 0x%x, cc.call.task_id = 0x%x,"
+				 "tc = 0x%p, tc->state = 0x%x, tc->call_id = 0x%x, tc->task_id = 0x%x\n",
+				 ret, call_id, cc.call.task_id, tc, tc->state, tc->call_id, tc->task_id);
+	}
+
+	/* cleanup task context */
+	if (ret != TZ_PENDING) {
+		tc->call_id = 0;
+		tc->state = TZ_NW_TASK_STATE_IDLE;
+	}
+
+	/* If TZMGR's call is not completed, we should keep task context. */
+	if (!(ret == TZ_PENDING && cc.call.task_id == TZ_TASK_ID_MGR)) {
+		tz_nw_task_client_release(cc.call.task_id, tc); 
+	}
 
 	/* copy back the communication data */
 	if (copy_to_user(argp, &cc, sizeof(struct tz_nw_comm))) {
@@ -606,9 +628,13 @@ static int tzd_release_session(struct tzd_dev_file *temp_dev_file,
 	bool instance_dead = false;
 	struct tz_nw_task_client *tc = NULL;
 	int ret = 0;
+	uint32_t call_id = current->pid;
 
 	task_id = TEE_SESSION_TASKID(info->session_id);
-	tc = tz_nw_task_client_get(task_id);
+	tc = tz_nw_task_client_get_with_callid(task_id, call_id);
+	if (!tc) {
+		tc = tz_nw_task_client_get(task_id);
+	}
 
 	WARN_ON(!tc);
 	if (unlikely(!tc)) {
@@ -616,7 +642,7 @@ static int tzd_release_session(struct tzd_dev_file *temp_dev_file,
 	}
 	/* if in callback, first stop callback */
 	if (tc->state == TZ_NW_TASK_STATE_CALLBACK) {
-		uint32_t call_id = current->pid;
+
 		struct tz_nw_comm cc;
 
 		cc.call.task_id = task_id;
@@ -670,6 +696,8 @@ static int tzd_release_session(struct tzd_dev_file *temp_dev_file,
 	}
 
 ret_func:
+	tc->call_id = 0;
+	tc->state = TZ_NW_TASK_STATE_IDLE;
 	tz_nw_task_client_release(task_id, tc); 
 	return ret;
 }

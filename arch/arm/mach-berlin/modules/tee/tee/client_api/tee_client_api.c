@@ -34,7 +34,8 @@
 #include "tee_client_util.h"
 #include "log.h"
 #ifndef __KERNEL__
-#include "string.h"
+#include <string.h>
+#include <unistd.h>
 #endif /* __KERNEL__ */
 
 #define TEE_DEVICE_NAME		"/dev/tz"
@@ -576,7 +577,6 @@ TEEC_Result TEEC_LoadTA(
 	if (result != TEEC_SUCCESS)
 		error("fail to register TA, error=0x%08x\n", result);
 
-cleanup3:
 	TEEC_ReleaseSharedMemory(&shm);
 cleanup2:
 	close(fd);

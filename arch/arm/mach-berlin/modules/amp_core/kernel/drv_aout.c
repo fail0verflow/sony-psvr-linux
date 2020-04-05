@@ -58,11 +58,11 @@ static INT32 pri_audio_chanId[4] = {
 };
 
 static AOUT_CTX aout_ctx;
-VOID *AoutFifoGetKernelRdDMAInfo(AOUT_PATH_CMD_FIFO * p_aout_cmd_fifo,	INT pair)
+static VOID *AoutFifoGetKernelRdDMAInfo(AOUT_PATH_CMD_FIFO * p_aout_cmd_fifo,	INT pair)
 {
 	VOID *pHandle;
 	INT rd_offset = p_aout_cmd_fifo->kernel_rd_offset;
-	if (rd_offset > p_aout_cmd_fifo->size || rd_offset < 0) {
+	if ((unsigned)rd_offset >= AOUT_PATH_CMD_FIFO_COUNT) {
 		INT i = 0, fifo_cmd_size = sizeof(AOUT_PATH_CMD_FIFO) >> 2;
 		INT *temp = (INT *)p_aout_cmd_fifo;
 		amp_trace("AOUT FIFO memory %p is corrupted! corrupted data :\n",
@@ -77,24 +77,19 @@ VOID *AoutFifoGetKernelRdDMAInfo(AOUT_PATH_CMD_FIFO * p_aout_cmd_fifo,	INT pair)
 	return pHandle;
 }
 
-VOID AoutFifoKernelReset ( AOUT_PATH_CMD_FIFO * p_aout_cmd_fifo )
+static VOID AoutFifoKernelReset ( AOUT_PATH_CMD_FIFO * p_aout_cmd_fifo )
 {
        p_aout_cmd_fifo->kernel_rd_offset = 0;
 }
-VOID AoutFifoKernelRdUpdate(AOUT_PATH_CMD_FIFO * p_aout_cmd_fifo, INT adv)
+static VOID AoutFifoKernelRdUpdate(AOUT_PATH_CMD_FIFO * p_aout_cmd_fifo, INT adv)
 {
-	p_aout_cmd_fifo->kernel_rd_offset += adv;
-	if (p_aout_cmd_fifo->kernel_rd_offset >= p_aout_cmd_fifo->size)
-		p_aout_cmd_fifo->kernel_rd_offset -= p_aout_cmd_fifo->size;
+	p_aout_cmd_fifo->kernel_rd_offset
+		= (adv + p_aout_cmd_fifo->kernel_rd_offset) & (AOUT_PATH_CMD_FIFO_COUNT-1);
 }
 
-INT AoutFifoCheckKernelFullness(AOUT_PATH_CMD_FIFO * p_aout_cmd_fifo)
+static INT AoutFifoCheckKernelFullness(AOUT_PATH_CMD_FIFO * p_aout_cmd_fifo)
 {
-	INT full;
-	full = p_aout_cmd_fifo->wr_offset - p_aout_cmd_fifo->kernel_rd_offset;
-	if (full < 0)
-		full += p_aout_cmd_fifo->size;
-	return full;
+	return (p_aout_cmd_fifo->wr_offset - p_aout_cmd_fifo->kernel_rd_offset) & (AOUT_PATH_CMD_FIFO_COUNT-1);
 }
 
 irqreturn_t amp_devices_aout_isr(int irq, void *dev_id)

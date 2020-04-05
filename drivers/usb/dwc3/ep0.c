@@ -403,6 +403,9 @@ static int dwc3_ep0_handle_feature(struct dwc3 *dwc,
 	recip = ctrl->bRequestType & USB_RECIP_MASK;
 	state = dwc->gadget.state;
 
+	if(le16_to_cpu(ctrl->wLength) != 0)
+		return -EINVAL;
+
 	switch (recip) {
 	case USB_RECIP_DEVICE:
 
@@ -482,6 +485,9 @@ static int dwc3_ep0_handle_feature(struct dwc3 *dwc,
 				return -EINVAL;
 			if (set == 0 && (dep->flags & DWC3_EP_WEDGE))
 				break;
+			/* functional stall on control pipe is not recommended  */
+			if ((set != 0) && ((dep->number >> 1) == 0))
+				return -EINVAL;
 			ret = __dwc3_gadget_ep_set_halt(dep, set, true);
 			if (ret)
 				return -EINVAL;

@@ -775,15 +775,10 @@ static unsigned int em_get_avail_bufsz(unsigned int r_offset)
 	if (r_offset >= loginfo->buf_size) {
 		return 0xffffffff;
 	}
-	if (r_offset < w_offset) {
-		return loginfo->write_offset - (w_offset - r_offset);
-	} else if (r_offset > w_offset) {
-		return r_offset - w_offset;
-	} else {
-		return loginfo->write_offset;
+	if (r_offset <= w_offset) {
+		return loginfo->buf_size - (w_offset - r_offset);
 	}
-	/* never come */
-	return 0;
+	return r_offset - w_offset;
 }
 
 static void em_dump_log(long step, struct file *log_file)
@@ -816,6 +811,7 @@ static void em_dump_log(long step, struct file *log_file)
 		avail_bufsz = em_get_avail_bufsz(start);
 		if (prev_avail_bufsz <= avail_bufsz
 			|| avail_bufsz == 0xffffffff) {
+			/* 'start' reaches write_offset */
 			start = prev_start;
 			break;
 		}
@@ -1652,10 +1648,10 @@ void em_exception_monitor(int mode, struct pt_regs *registers)
 	if (logable) {
 		int lf_flags = O_CREAT | O_NOFOLLOW | O_APPEND | O_RDWR;
 		loginfo = (struct log_info *)log_buffer;
-		em_open_trunc_file(&log_file, log, lf_flags, CONFIG_SNSC_EM_LOGFILE_MAX_SIZE);
 		if (em_param_flags & INITDUMP_CONS) {
 			em_flush_log();
 		}
+		em_open_trunc_file(&log_file, log, lf_flags, CONFIG_SNSC_EM_LOGFILE_MAX_SIZE);
 		em_dump_log_to_file(log_file, CONFIG_SNSC_EM_LOGFILE_LOG_MAX_LINES);
 	}
 #endif
@@ -1762,9 +1758,6 @@ static int em_set_initdump(const char *param)
 		initdump = INITDUMP_FILE;
 	else if (strncmp(param, "both", 5) == 0) {
 		initdump = INITDUMP_ALL;
-#ifdef CONFIG_SNSC_EM_PRINT_INFO_EXTERNAL
-		ext_info.detailed = 1;
-#endif		
 	} else if (strncmp(param, "none", 5) == 0)
 		;
 	else {
@@ -1772,6 +1765,9 @@ static int em_set_initdump(const char *param)
 		       param);
 		return -EINVAL;
 	}
+#ifdef CONFIG_SNSC_EM_PRINT_INFO_EXTERNAL
+	ext_info.detailed = 1;
+#endif
 	em_param_flags = (em_param_flags & ~INITDUMP_ALL) | initdump;
 	return 0;
 }

@@ -50,7 +50,7 @@ static void *AIPFifoGetKernelPreRdDMAInfo(AIP_DMA_CMD_FIFO * p_aip_cmd_fifo,
 {
 	void *pHandle;
 	INT rd_offset = p_aip_cmd_fifo->kernel_pre_rd_offset;
-	if (rd_offset > p_aip_cmd_fifo->size || rd_offset < 0) {
+	if ((unsigned)rd_offset >= AIP_PATH_CMD_FIFO_COUNT) {
 		INT i = 0, fifo_cmd_size = sizeof(AIP_DMA_CMD_FIFO) >> 2;
 		INT *temp = (INT *)p_aip_cmd_fifo;
 		amp_trace("memory %p is corrupted! corrupted data :\n", p_aip_cmd_fifo);
@@ -66,22 +66,19 @@ static void *AIPFifoGetKernelPreRdDMAInfo(AIP_DMA_CMD_FIFO * p_aip_cmd_fifo,
 static void AIPFifoKernelPreRdUpdate(AIP_DMA_CMD_FIFO * p_aip_cmd_fifo, INT adv)
 {
 	p_aip_cmd_fifo->kernel_pre_rd_offset += adv;
-	p_aip_cmd_fifo->kernel_pre_rd_offset %= p_aip_cmd_fifo->size;
+	p_aip_cmd_fifo->kernel_pre_rd_offset %= AIP_PATH_CMD_FIFO_COUNT;
 }
 
 static void AIPFifoKernelRdUpdate(AIP_DMA_CMD_FIFO * p_aip_cmd_fifo, INT adv)
 {
-    p_aip_cmd_fifo->kernel_rd_offset += adv;
-	p_aip_cmd_fifo->kernel_rd_offset %= p_aip_cmd_fifo->size;
+	p_aip_cmd_fifo->kernel_rd_offset += adv;
+	p_aip_cmd_fifo->kernel_rd_offset %= AIP_PATH_CMD_FIFO_COUNT;
 }
 
 static INT AIPFifoCheckKernelFullness(AIP_DMA_CMD_FIFO * p_aip_cmd_fifo)
 {
-	INT full;
-	full = p_aip_cmd_fifo->wr_offset - p_aip_cmd_fifo->kernel_pre_rd_offset;
-	if (full < 0)
-		full += p_aip_cmd_fifo->size;
-	return full;
+	return (p_aip_cmd_fifo->wr_offset - p_aip_cmd_fifo->kernel_pre_rd_offset)
+		% AIP_PATH_CMD_FIFO_COUNT;
 }
 
 int intr_counter = 0;
@@ -540,102 +537,6 @@ irqreturn_t amp_devices_avif_isr(int irq, void *dev_id)
 #endif
 
 #if defined(CONFIG_MV_AMP_COMPONENT_AIP_ENABLE)
-void aip_start_cmd(AVIF_CTX *hAvifCtx, INT *aip_info, void *param)
-{
-	INT *p = aip_info;
-	INT chanId;
-	HDL_dhub *dhub = NULL;
-	AIP_DMA_CMD *p_dma_cmd;
-	AIP_DMA_CMD_FIFO *pCmdFifo = NULL;
-
-	if ( !hAvifCtx ) {
-        amp_error("aip_resume_cmd null handler!\n");
-        return;
-    }
-
-	hAvifCtx->aip_source = aip_info[2];
-	hAvifCtx->p_aip_cmdfifo = pCmdFifo = (AIP_DMA_CMD_FIFO *) param;
-
-    pCmdFifo = hAvifCtx->p_aip_cmdfifo;
-	if ( !pCmdFifo ) {
-		amp_trace("aip_resume_cmd:p_aip_fifo is NULL\n");
-		return;
-	}
-
-	if (*p == 1) {
-		hAvifCtx->aip_i2s_pair = 1;
-		p_dma_cmd =
-		    (AIP_DMA_CMD *) AIPFifoGetKernelPreRdDMAInfo(pCmdFifo, 0);
-
-		if (AIP_SOUECE_SPDIF == hAvifCtx->aip_source) {
-			chanId = avioDhubChMap_vpp_SPDIF_W;
-			dhub = &VPP_dhubHandle.dhub;
-			wrap_dhub_channel_write_cmd(dhub, chanId,
-				       p_dma_cmd->addr0, p_dma_cmd->size0, 0, 0,
-				       0, 1, 0, 0);
-		} else {
-#if (BERLIN_CHIP_VERSION >= BERLIN_BG2_DTV_A0)
-			chanId = avioDhubChMap_ag_PDM_MIC_ch1;
-			dhub = &AG_dhubHandle.dhub;
-			dhub_channel_write_cmd(dhub, chanId,
-						p_dma_cmd->addr0, p_dma_cmd->size0, 0, 0,
-						0, 1, 0, 0);
-#endif
-		}
-		AIPFifoKernelPreRdUpdate(hAvifCtx->p_aip_cmdfifo, 1);
-
-		// push 2nd dHub command
-		p_dma_cmd =
-		    (AIP_DMA_CMD *) AIPFifoGetKernelPreRdDMAInfo(hAvifCtx->p_aip_cmdfifo, 0);
-		if(chanId == avioDhubChMap_vpp_SPDIF_W)
-			wrap_dhub_channel_write_cmd(dhub, chanId,
-					p_dma_cmd->addr0, p_dma_cmd->size0, 0, 0,
-					0, 1, 0, 0);
-		else
-			dhub_channel_write_cmd(dhub, chanId,
-					p_dma_cmd->addr0, p_dma_cmd->size0, 0, 0,
-					0, 1, 0, 0);
-		AIPFifoKernelPreRdUpdate(hAvifCtx->p_aip_cmdfifo, 1);
-	} else if (*p == 4) {
-#if (BERLIN_CHIP_VERSION >= BERLIN_BG2_DTV_A0)
-        UINT pair;
-        hAvifCtx->aip_i2s_pair = 4;
-		for (pair = 0; pair < 4; pair++) {
-			p_dma_cmd =
-				(AIP_DMA_CMD *)
-				AIPFifoGetKernelPreRdDMAInfo(pCmdFifo, pair);
-			chanId = avioDhubChMap_ag_PDM_MIC_ch1 + pair;
-			dhub_channel_write_cmd(&AG_dhubHandle.dhub, chanId,
-							p_dma_cmd->addr0,
-							p_dma_cmd->size0, 0, 0, 0, 1, 0,
-							0);
-		}
-
-		AIPFifoKernelPreRdUpdate(pCmdFifo, 1);
-
-		for (pair = 0; pair < 4; pair++) {
-			p_dma_cmd = (AIP_DMA_CMD *)
-				AIPFifoGetKernelPreRdDMAInfo(pCmdFifo, pair);
-			chanId = avioDhubChMap_ag_PDM_MIC_ch1 + pair;
-			dhub_channel_write_cmd(&AG_dhubHandle.dhub, chanId,
-							p_dma_cmd->addr0,
-							p_dma_cmd->size0, 0, 0, 0, 1, 0,
-							0);
-		}
-		AIPFifoKernelPreRdUpdate(pCmdFifo, 1);
-#endif
-	}
-}
-
-void aip_stop_cmd(AVIF_CTX *hAvifCtx)
-{
-    if ( !hAvifCtx ) {
-        amp_error("aip_stop_cmd null handler!\n");
-        return;
-    }
-	hAvifCtx->p_aip_cmdfifo = NULL;
-}
-
 void aip_resume_cmd(AVIF_CTX *hAvifCtx)
 {
 	AIP_DMA_CMD *p_dma_cmd;
@@ -868,7 +769,7 @@ void aip_avif_start_cmd(AVIF_CTX *hAvifCtx, INT *aip_info, void *param)
 void aip_avif_stop_cmd(AVIF_CTX *hAvifCtx)
 {
     if ( !hAvifCtx ) {
-        amp_error("aip_stop_cmd null handler!\n");
+        amp_error("aip_avif_stop_cmd null handler!\n");
         return;
     }
 	hAvifCtx->p_aip_cmdfifo = NULL;
