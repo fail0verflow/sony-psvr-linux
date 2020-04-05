@@ -1,0 +1,35 @@
+menu "SNSC Configurations"
+
+comment "SNSC debug options"
+	depends on SNSC
+
+config SNSC_SCHED_CLOCK_TEST
+	bool  'Enable to output sched_clock() retval from /proc'
+	depends on SNSC
+
+config SNSC_ALT_BACKTRACE
+	bool  'Enable alternative backtrace routine'
+	depends on SNSC
+	depends on ARM_UNWIND_USER
+	default y
+
+config SNSC_ALT_BACKTRACE_PROC_USTACK
+	bool  'Proc entry for human-readable user-stack backtrace'
+	depends on SNSC_ALT_BACKTRACE
+	default y
+	help
+	   This option creates /proc/TGID/task/PID/ustack.  'cat' it
+	   to print backtrace of userspace stack of the specified
+	   task.  During backtracing, the task is stopped by ptrace.
+	   Another entry /proc/TGID/task/PID/ustack_raw does not stop
+	   the task but reading it while the task is running may
+	   return meaningless results.
+
+config SNSC_TRACER
+	bool  'Enable Debug Tracer'
+	depends on SNSC
+	default y
+
+
+
+endmenu

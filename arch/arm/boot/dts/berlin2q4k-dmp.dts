@@ -1,0 +1,110 @@
+/*
+ * MARVELL BERLIN2Q4K DMP board device tree source
+ *
+ * Author:	Jisheng Zhang <jszhang@marvell.com>
+ * Copyright (c) 2013 Marvell International Ltd.
+ *		http://www.marvell.com
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+*/
+
+/dts-v1/;
+/include/ "berlin2q4k.dtsi"
+
+/ {
+	model = "MARVELL BG2Q4K DMP board based on BERLIN2Q4K";
+	compatible = "marvell,berlin2q4k-dmp", "marvell,berlin2q4k", "marvell,berlin";
+
+	cpus {
+		cpu@0 {
+			cpu0-supply = <&vcpu>;
+		};
+	};
+
+	soc {
+		sdhci@F7AB0000 {
+			vqmmc-supply = <&vqmmc_reg_sdio0>;
+		};
+
+		sdhci@F7AB0800 {
+			vmmc-supply = <&vmmc_reg_sdio1>;
+			vqmmc-supply = <&vqmmc_reg_sdio1>;
+		};
+
+		vqmmc_reg_sdio0: vqmmc_sdio0 {
+			compatible = "regulator-gpio";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <3300000>;
+			regulator-name = "vqmmc_sdio0";
+			regulator-type = "voltage";
+			gpios = <&banke 7 0>;
+			states = <3300000 0x1
+				1800000 0x0>;
+		};
+
+		vmmc_reg_sdio1: vmmc_sdio1 {
+			compatible = "regulator-fixed";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			regulator-name = "vmmc_sdio1";
+			enable-active-high;
+			regulator-boot-on;
+			gpio = <&bankb 21 0>;
+		};
+
+		vqmmc_reg_sdio1: vqmmc_sdio1 {
+			compatible = "regulator-gpio";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <3300000>;
+			regulator-name = "vqmmc_sdio1";
+			regulator-type = "voltage";
+			enable-active-high;
+			gpios = <&bankb 16 0>;
+			states = <3300000 0x1
+				1800000 0x0>;
+		};
+
+		sdhci@F7AB0000 {
+			marvell,txcfg = <0x802000b0>;
+		};
+
+		i2c@0 {
+			pg867 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				compatible = "marvell,pg86x";
+				reg = <0x19>;
+				vcore:BK1_TV@0 {
+					regulator-name = "vcore";
+					regulator-min-microvolt = <900000>;
+					regulator-max-microvolt = <1350000>;
+					regulator-always-on;
+					regulator-boot-on;
+				};
+			};
+		};
+
+		i2c@2 {
+			pg867 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				compatible = "marvell,pg86x";
+				reg = <0x19>;
+				vcpu:BK1_TV@1 {
+					regulator-name = "vcpu";
+					regulator-min-microvolt = <900000>;
+					regulator-max-microvolt = <1350000>;
+					regulator-always-on;
+					regulator-boot-on;
+				};
+			};
+		};
+
+		pcie@F7E40000 {
+			reset-gpio = <&banke 27 0>;
+			status = "okay";
+		};
+	};
+};

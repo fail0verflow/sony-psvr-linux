@@ -1,0 +1,102 @@
+#
+# SNSC related configurations
+#
+
+config SNSC_DEBUG_STACK_USAGE
+	bool "Enable kernel stack utilization"
+	depends on SNSC
+	select DEBUG_STACK_USAGE
+	default n
+	help
+	  Enables the display of the minimum amount of free stack for each
+	  task in /proc/kstack. Data of exited processes are recorded to
+	  memory.
+
+config SNSC_CORRECT_PMD_CALCULATION_WHEN_AFE_IS_ENABLED
+       bool "Correct pmd calculation when CONFIG_CPU_AFE==y"
+       depends on CPU_AFE
+       default y
+       help
+
+         If CONFIG_CPU_AFE==y, pmd calculation is wrong in
+         alloc_init_section() (called by create_mapping()), which may
+         produce wrong page tale entries when the size of memory chunk
+         passed to it is below 4M.
+
+config SNSC_ARM_DMA_REDUCE_CACHE_OPS
+	bool "Reduce cache operations for large DMA buffer"
+	depends on CPU_V7
+	select SNSC_ARM_DMA_REDUCE_CACHE_OPS_UP if !SMP
+	select SNSC_ARM_DMA_REDUCE_CACHE_OPS_SMP if SMP
+	default n
+	help
+	  For the large DMA buffers which are in excess of cache size,
+	  the maintenance operations by MVA are very slow. For such
+	  buffers, enabling this speed up the maintenance operations
+	  by using the set/way based method.
+
+config SNSC_ARM_DMA_REDUCE_CACHE_OPS_UP
+	bool
+
+config SNSC_ARM_DMA_REDUCE_CACHE_OPS_SMP
+	bool
+
+config SNSC_ARM_DMA_REDUCE_CACHE_OPS_THRESHOLD
+	int "Threshold to clean/flush whole cache"
+	depends on SNSC_ARM_DMA_REDUCE_CACHE_OPS_SMP
+	default 0
+	help
+	  Threshold to clean/flush whole cache. If set to 0, actual
+	  cache size is used. Note that because clean/flush for whole
+	  cache by this feature takes quite a overhead, the threshold
+	  should be larger than cache size.
+
+config SNSC_ARM_DMA_SKIP_OUTER_CACHE_OPS_FOR_OUTER_NONCACHEABLE_REGION
+	bool "Skip outer cache operations for outer noncacheable DMA region"
+	depends on CPU_V7
+	depends on OUTER_CACHE
+	default n
+	help
+	  Outer cache operations like clean, invalidate, and
+	  clean+invalidate for outer noncacheable DMA region are
+	  useless. For such regions, enabling this speed up the
+	  maintenance operations by skipping useless cache operations.
+
+config SNSC_L2X0_OPTIMIZE_RANGE_INVALIDATION
+	bool "Optimize L2x0 range invalidation"
+	depends on CACHE_L2X0
+	default n
+	help
+	  For the big buffers which are in excess of cache size, the
+	  maintaince operations by PA are very slow. For such buffers
+	  the maintainace operations can be speeded up by using the
+	  WAY based method.
+
+config SNSC_ARM_ALLOW_TO_USE_ALL_HW_WATCHPOINTS
+	bool "Allow to use all hardware watchpoints"
+	depends on HAVE_HW_BREAKPOINT
+	default n
+	help
+	  Enabling this, you can use all hardware watchpoints. But
+	  there are 2 limitations because of the hardware
+	  specification. First, you have to register the same overflow
+	  handler for each watchpoint. Second, if you set 2 or more
+	  watchpoints to different addresses, NULL is passed to
+	  overflow handler as a watchpoint trigger address
+
+config SNSC_ARM_HW_WATCHPOINT_ADDR_MASK_SUPPORT
+	bool "Hardware watchpoint address mask support"
+	depends on HAVE_HW_BREAKPOINT
+	default n
+	help
+	  Enabling this allows you to set address range mask to
+	  hardware watchpoint through ptrace(PTRACE_SETHBPREGS).
+
+config SNSC_DEBUG_COUNT_TLB_FLUSH
+	bool "Count number of TLB flushes"
+	depends on CPU_V7
+	default n
+	help
+	  Warning!!! Only enable this config for debugging purpose
+	  as it may lead to purformance degradation. With this you
+	  can read the nunmber of TLB flushes in the /proc/stat

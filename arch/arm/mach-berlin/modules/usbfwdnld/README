@@ -1,0 +1,51 @@
+===============================================================================
+			U S E R  M A N U A L
+
+ Copyright (C) 2014, Marvell International Ltd.
+ All Rights Reserved
+
+1) FOR DRIVER BUILD
+
+	Goto source code directory usbfwdnld_src/.
+	make [clean] build
+	The driver binary can be found in ../bin_usbfwdnld directory.
+	The driver code supports Linux kernel up to 3.2.
+
+2) FOR DRIVER INSTALL
+
+	a) Copy firmware image usb8766_uapsta.bin | ... to /lib/firmware/mrvl/ directory,
+	   create the directory if it doesn't exist.
+
+	b) Install USB FW download driver
+		The module takes two optional parameters -
+
+		1) fw_name=<FW name>
+			This paramter supplies the name of the FW to be downloaded. If this parameter
+			is not provided, the default FW is loaded.
+
+			For example, to download FW with USB8766 adapter,
+				insmod usbfwdnld.ko [fw_name=mrvl/usb8766_uapsta.bin]
+
+		2) req_fw_nowait=0|1
+			This parameter instructs the module to load the FW using either
+			request_firmware API (blocking call) or request_firmware_nowait (non-blocking call)
+
+			0: use request_firmware API (default)
+			1: use request_firmware_nowait API
+
+		Note: On some platforms (e.g. PXA910/920) double quotation marks ("") need to used
+		for module parameters.
+			insmod sd8xxx.ko "<para1> <para2> ..."
+
+	c) Uninstall WLAN driver,
+		rmmod usbfwdnld
+
+3) OPERATION
+
+	The USB FW download driver is designed to only download the FW to the adapter.
+	The driver is NOT a fully operation WLAN/BT driver and will not create network
+	interfaces upon loading.
+
+	It is expected to be followed by the regular WLAN/BT driver loading, which performs
+	all WLAN/BT related operations, but will skip the FW download. For details on how to
+	build and load regular WLAN/BT driver please refer to README of the respective driver.

@@ -1,0 +1,255 @@
+#
+# SNSC related configurations
+#
+
+config SNSC_QEMU
+	bool 'QEMU Support'
+	depends on SNSC
+	default n
+
+config SNSC_QEMU_FB_CIRRUS
+	bool 'QEMU Support for Cirrus Logic'
+	depends on SNSC
+	depends on SNSC_QEMU
+	depends on FB_CIRRUS
+	default n
+	help
+	  This enables support for Cirrus Logic GD5446 based boards on
+	  QEMU.
+
+config SNSC_QEMU_HW_WATCHPOINT_DEBUG
+ 	bool 'QEMU Support for Enhanced Hardware Watchpoint Debug'
+ 	depends on SNSC
+ 	depends on SNSC_QEMU
+ 	default n
+
+config SNSC_NLVER_CUSTOMVER_ENABLE
+	bool 'Use custom kernel version'
+	depends on SNSC
+
+config SNSC_NLVER_CUSTOMVER
+	string 'Custom kernel version'
+	depends on SNSC_NLVER_CUSTOMVER_ENABLE
+	depends on SNSC
+
+config SNSC_NLVER_REPOSITORYVERSION_AUTO
+	bool 'Embed git/arch repository revision'
+	depends on SNSC
+
+config SNSC_NLVER_NBLVER
+	bool 'Add support of NBL version'
+	depends on SNSC
+	depends on SNSC_NBLARGS
+  	default y if ARM
+	default n
+
+config SNSC_DEFERRED_INITCALLS
+	bool 'Support for deferred initcalls'
+	depends on SNSC
+	depends on ARM
+	default n
+
+config SNSC_DEFERRED_INITCALLS_SUBSYS
+	bool 'Enable deferred initcalls for subsystem (ex. subsys_initcall())'
+	depends on SNSC_DEFERRED_INITCALLS
+	default n
+
+config SNSC_DEFERRED_INITCALLS_GROUP_SUBSYS
+	int 'Group number for subsystem drivers (0-31)'
+	depends on SNSC_DEFERRED_INITCALLS_SUBSYS
+	default 8
+
+config SNSC_DEFERRED_INITCALLS_SCSI
+	bool 'Enable deferred initcalls for SCSI'
+	depends on SNSC_DEFERRED_INITCALLS
+	depends on SCSI
+	default n
+
+config SNSC_DEFERRED_INITCALLS_GROUP_BLK_DEV_SD
+	int 'Group number for SCSI disk driver (0-31)'
+	depends on SNSC_DEFERRED_INITCALLS_SCSI
+	depends on BLK_DEV_SD
+	default 16
+
+config SNSC_DEFERRED_INITCALLS_USB
+	bool 'Enable deferred initcalls for USB'
+	depends on SNSC_DEFERRED_INITCALLS
+	depends on USB
+	default n
+
+config SNSC_DEFERRED_INITCALLS_GROUP_USB_HCD
+	int 'Group number for USB Host Controller drivers (0-31)'
+	depends on SNSC_DEFERRED_INITCALLS_USB
+	depends on USB_EHCI_HCD || USB_OHCI_HCD
+	default 16
+
+config SNSC_DEFERRED_INITCALLS_GROUP_USB_STORAGE
+	int 'Group number for USB Storage driver (0-31)'
+	depends on SNSC_DEFERRED_INITCALLS_USB
+	depends on USB_STORAGE
+	default 16
+
+config SNSC_DEFERRED_INITCALLS_GROUP_USB_VIDEO_CLASS
+	int 'Group number for USB Video Class driver (0-31)'
+	depends on SNSC_DEFERRED_INITCALLS_USB
+	depends on USB_VIDEO_CLASS
+	default 16
+
+config SNSC_DEFERRED_INITCALLS_USB_GADGET
+	bool 'Enable deferred initcalls for USB gadget'
+	depends on SNSC_DEFERRED_INITCALLS
+	depends on USB_GADGET=y
+	depends on USB_GADGET_SELECTED
+	default n
+
+config SNSC_DEFERRED_INITCALLS_GROUP_USB_GADGET_CONTROLLER
+	int 'Group number for USB gadget controller driver (0-31)'
+	range 0 31
+	default 16
+	depends on SNSC_DEFERRED_INITCALLS_USB_GADGET
+	help
+	 The group number should not be greater than number of USB Gadget
+	 functions like SNSC_DEFERRED_INITCALLS_GROUP_USB_GADGET_ETH
+
+config SNSC_DEFERRED_INITCALLS_GROUP_USB_GADGET_ETH
+	int 'Group number for USB gadget ethernent driver (0-31)'
+	range 0 31
+	default 16
+	depends on SNSC_DEFERRED_INITCALLS_USB_GADGET
+	depends on USB_ETH=y
+
+config SNSC_DEFERRED_INITCALLS_PCI
+	bool 'Enable deferred initcalls for PCI'
+	depends on SNSC_DEFERRED_INITCALLS
+	depends on PCI
+	default n
+
+config SNSC_DEFERRED_INITCALLS_GROUP_PCIEPORTBUS
+	int 'Group number for PCI Express drivers (0-31)'
+	depends on SNSC_DEFERRED_INITCALLS_PCI
+	depends on PCIEPORTBUS
+	default 16
+
+config SNSC_BOOT_FORMAT
+	bool "Select kernel image format"
+	depends on SNSC
+	default n
+
+config SNSC_BOOT_BIN
+	bool "Raw Binary"
+	depends on SNSC_BOOT_FORMAT
+	default n
+
+config SNSC_BOOT_BIN_GZ
+	bool "Gzipped Raw Binary"
+	depends on SNSC_BOOT_FORMAT
+	default n
+
+config SNSC_BOOT_ELF
+	bool "Stripped ELF"
+	depends on SNSC_BOOT_FORMAT
+	default n
+
+config SNSC_BOOT_ELF_GZ
+	bool "Gzipped & Stripped ELF"
+	depends on SNSC_BOOT_FORMAT
+	default n
+
+config SNSC_NULL_CONSOLE
+	bool 'Support for NULL console'
+	depends on SNSC
+
+config SNSC_LOOPBACK_SCHED_OPTION
+	bool 'Set scheduler policy/priority for loopback device'
+	depends on SNSC
+	depends on BLK_DEV_LOOP
+	select SNSC_SET_THREAD_PRIORITY
+
+config SNSC_LOOPBACK_SCHED_POLICY
+	int 'Scheduler Policy(0=NORMAL, 1=FIFO, 2=RR)'
+	depends on SNSC
+	depends on SNSC_LOOPBACK_SCHED_OPTION
+	default 2
+
+config SNSC_LOOPBACK_SCHED_PRIORITY
+	int 'Scheduler Priority(NORMAL:-20..19, FIFO/RR:1..99)'
+	depends on SNSC
+	depends on SNSC_LOOPBACK_SCHED_OPTION
+	default 99
+
+config SNSC_KSWAPD_SCHED_OPTION
+	bool 'Set scheduler policy/priority for kswapd'
+	depends on SNSC
+	select SNSC_SET_THREAD_PRIORITY
+
+config SNSC_KSWAPD_SCHED_POLICY
+	int 'Scheduler Policy(0=NORMAL, 1=FIFO, 2=RR)'
+	depends on SNSC
+	depends on SNSC_KSWAPD_SCHED_OPTION
+	default 2
+
+config SNSC_KSWAPD_SCHED_PRIORITY
+	int 'Scheduler Priority(NORMAL:-20..19, FIFO/RR:1..99)'
+	depends on SNSC
+	depends on SNSC_KSWAPD_SCHED_OPTION
+	default 99
+
+config SNSC_KSOFTIRQD_SCHED_OPTION
+	bool 'Set scheduler policy/priority for ksoftirqd'
+	depends on SNSC
+	select SNSC_SET_THREAD_PRIORITY
+
+config SNSC_KSOFTIRQD_SCHED_POLICY
+	int 'Scheduler Policy(0=NORMAL, 1=FIFO, 2=RR)'
+	depends on SNSC
+	depends on SNSC_KSOFTIRQD_SCHED_OPTION
+	default 2
+
+config SNSC_KSOFTIRQD_SCHED_PRIORITY
+	int 'Scheduler Priority(NORMAL:-20..19, FIFO/RR:1..99)'
+	depends on SNSC
+	depends on SNSC_KSOFTIRQD_SCHED_OPTION
+	default 99
+
+config SNSC_WORKQUEUE_SCHED_OPTION
+	bool 'Set scheduler policy/priority for workqueue'
+	depends on SNSC
+	select SNSC_SET_THREAD_PRIORITY
+
+config SNSC_WORKQUEUE_SCHED_POLICY
+	int 'Scheduler Policy(0=NORMAL, 1=FIFO, 2=RR)'
+	depends on SNSC
+	depends on SNSC_WORKQUEUE_SCHED_OPTION
+	default 2
+
+config SNSC_WORKQUEUE_SCHED_PRIORITY
+	int 'Scheduler Priority(NORMAL:-20..19, FIFO/RR:1..99)'
+	depends on SNSC
+	depends on SNSC_WORKQUEUE_SCHED_OPTION
+	default 99
+
+config SNSC_BDI_SCHED_OPTION
+	bool 'Set scheduler policy/priority for BDI tasks'
+	depends on SNSC
+	select SNSC_SET_THREAD_PRIORITY
+
+config SNSC_BDI_SCHED_POLICY
+	int 'Scheduler Policy(0=NORMAL, 1=FIFO, 2=RR)'
+	depends on SNSC
+	depends on SNSC_BDI_SCHED_OPTION
+	default 2
+
+config SNSC_BDI_SCHED_PRIORITY
+	int 'Scheduler Priority(NORMAL:-20..19, FIFO/RR:1..99)'
+	depends on SNSC
+	depends on SNSC_BDI_SCHED_OPTION
+	default 99
+
+config SNSC_NBLARGS
+	bool 'Use NBLArgs to pass data from bootloader to kernel'
+	depends on SNSC
+
+config SNSC_NBLARGS_RESERVE_ENTRY_REGION
+	bool 'Reserve NBLArgs entry region to prevent kernel using that area.'
+	depends on SNSC_NBLARGS
+	default n

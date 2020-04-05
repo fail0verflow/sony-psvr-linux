@@ -1,0 +1,21 @@
+#
+# SNSC related configurations
+#
+
+config SNSC_MMCQD_SCHED_OPTION
+	bool 'Set scheduler policy/priority for mmcqd'
+	depends on SNSC
+	select SNSC_SET_THREAD_PRIORITY
+
+config SNSC_MMCQD_SCHED_POLICY
+	int 'Scheduler Policy(0=NORMAL, 1=FIFO, 2=RR)'
+	depends on SNSC
+	depends on SNSC_MMCQD_SCHED_OPTION
+	default 2
+
+config SNSC_MMCQD_SCHED_PRIORITY
+	int 'Scheduler Priority(NORMAL:-20..19, FIFO/RR:1..99)'
+	depends on SNSC
+	depends on SNSC_MMCQD_SCHED_OPTION
+	default 99
+

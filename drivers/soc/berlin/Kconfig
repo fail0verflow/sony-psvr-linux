@@ -1,0 +1,10 @@
+#
+# berlin SoC drivers
+#
+config BERLIN_CHIPID
+	bool "Support BERLIN CHIPID"
+	default y
+	select SOC_BUS
+	depends on ARCH_BERLIN || ARM64
+	help
+	  If you say Y here you get support for the BERLIN CHIP id.

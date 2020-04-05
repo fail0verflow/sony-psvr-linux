@@ -1,0 +1,59 @@
+/*
+ * MARVELL BERLIN2Q SoC device tree source
+ *
+ * Author:	Jisheng Zhang <jszhang@marvell.com>
+ * Copyright (c) 2013 Marvell Technology Group Ltd.
+ *		http://www.marvell.com
+ *
+ * MARVELL BERLIN2Q SoC device nodes are listed in this file.
+ * BERLIN2Q based board files can include this file and provide
+ * values for board specfic bindings.
+ *
+ * Note: This file does not include device nodes for all the controllers in
+ * BERLIN2Q SoC. As device tree coverage for BERLIN2Q increases,
+ * additional nodes can be added to this file.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+*/
+
+/include/ "berlin2q-common.dtsi"
+/ {
+	clocks {
+		sdioxinclk: sdioxinclk {
+			reg = <0xF7EA0158 4>;
+		};
+
+		sdio1xinclk: sdio1xinclk {
+			reg = <0xF7EA015C 4>;
+		};
+
+		gfx3dcoreclk: gfx3dcoreclk {
+			reg = <0xF7EA0148 4>;
+		};
+
+		gfx3dsysclk: gfx3dsysclk {
+			reg = <0xF7EA014C 4>;
+		};
+
+		gfx3dshclk: gfx3dshclk {
+			reg = <0xF7EA01AC 4>;
+		};
+	};
+
+	soc {
+		usbphy2: usbphy@F7A2F400{
+			compatible = "marvell,berlin-usbphy";
+			reg = <0xF7A2F400 128>, <0xF7EA0104 4>;
+			reset-bit = <14>;
+		};
+
+		usb@F7A30000 {
+			compatible = "marvell,berlin-ehci";
+			reg = <0xF7A30000 0x10000>;
+			interrupts = <0 52 4>;
+			usb-phy = <&usbphy2>;
+		};
+	};
+};

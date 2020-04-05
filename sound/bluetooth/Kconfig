@@ -1,0 +1,16 @@
+# ALSA BLUETOOTH drivers
+
+menu "bluetooth sound devices"
+	depends on BT
+
+config SND_BT_AUDIO
+	tristate "bluetooth alsa driver"
+	select SND_HWDEP
+	select SND_RAWMIDI
+	select SND_PCM
+	help
+	  Say Y here to include support for BT audio devices.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called snd-bt-audio.
+endmenu

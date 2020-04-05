@@ -1,0 +1,31 @@
+config SNSC_MEMDRIPPER
+	bool "Enable Sony Memdripper module"
+	depends on SNSC
+	select ELF_CORE
+	default n
+	---help---
+	  Memory Dripper kernel module is a part of Memdripper tool
+	  that detects userspace memory leaks.This module takes snapshots
+	  of program VMA pages that are written to and dumps them to
+	  specified location
+
+if SNSC_MEMDRIPPER
+
+config SNSC_MEMDRIPPER_RT_PRIO
+	bool "Enable Memdripper RT priority"
+	default n
+	---help---
+	  Memdripper real time thread priority.
+
+if SNSC_MEMDRIPPER_RT_PRIO
+
+config SNSC_MEMDRIPPER_RT_PRIO_VALUE
+	int "Memdripper thread RT priority value (1-99)"
+	range 1 99
+	default 99
+	---help---
+	  Memdripper thread default RT priority is set to 99, this
+	  can be changed in the range (1 to 99) as required.
+endif
+
+endif

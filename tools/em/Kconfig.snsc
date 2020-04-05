@@ -1,0 +1,202 @@
+menuconfig SNSC_EM
+	tristate "Support for SNSC Exception Monitor"
+	select EXCEPTION_MONITOR
+
+if SNSC_EM
+
+config SNSC_EM_LOG_DRIVER
+	bool "Support for Log Driver"
+	default n
+
+config SNSC_EM_LOGFILE_MAX_SIZE
+	int "log file max size"
+	depends on SNSC_EM_LOG_DRIVER
+	default 229376
+
+config SNSC_EM_LOGFILE_ACCEPTABLE_LINE_BYTES
+	int "max size for each line"
+	depends on SNSC_EM_LOG_DRIVER
+	default 1023
+
+config SNSC_EM_LOGFILE_LOG_MAX_LINES
+	int "max line counts got from log buffer"
+	depends on SNSC_EM_LOG_DRIVER
+	default 2048
+
+config SNSC_EM_USER_HOOK
+	bool "Support for user hook"
+	default n
+
+config SNSC_EM_USER_HOOK_FILENAME
+	string "usermode file called after exception"
+	depends on SNSC_EM_USER_HOOK
+	default ""
+
+config SNSC_EM_USER_HOOK_FILENAME_PATH
+	string "path when running usermode file"
+	depends on SNSC_EM_USER_HOOK
+	default ""
+
+config SNSC_EM_VERSION_FILE
+	bool "Support for software version file to dump"
+	default n
+
+config SNSC_EM_VERSION_FILENAME
+	string "software version file name"
+	depends on SNSC_EM_VERSION_FILE
+	default ""
+
+config SNSC_EM_NOTIFY
+	bool "Support for notify function"
+	default n
+
+config SNSC_EM_NOTIFY_ENTER
+	bool "Support for notifing ENTER"
+	depends on SNSC_EM_NOTIFY
+	default n
+
+config SNSC_EM_USERMODE_CALLBACK
+	bool "Support for usermode callback"
+	depends on ARM
+	default y
+
+config SNSC_EM_ATOMIC_CALLBACK
+	bool "Support for atomic callback"
+	default y
+
+config SNSC_EM_CALLSTACK_ENABLE
+	bool "Support for getting backtrace with kernel backtrace routine"
+	default y
+
+config SNSC_EM_CALLSTACK
+	string "Callstack options"
+	depends on SNSC_EM_CALLSTACK_ENABLE
+	default "kstack,kstack_regs,ustack"
+
+config SNSC_EM_PREEMPT_DISABLE
+	bool "Disable kernel preemption while in interaction mode"
+	default n
+
+config SNSC_EM_USE_CONSOLE_WRITE
+	bool "Use console_write instread of printk for console output"
+	default y
+
+config SNSC_EM_DEMANGLE
+	bool "Support for C++ symbol demangle"
+	default n
+
+config SNSC_EM_DISASSEMBLE
+	bool "Support for disassemble"
+	default n
+
+config SNSC_EM_CONSOLE_IRQ_DISABLE
+	bool "Disable Console IRQ while in interaction mode"
+	default n
+
+config SNSC_EM_CONSOLE_IRQ
+	int "Console IRQ number disabled while in interaction mode"
+	depends on SNSC_EM_CONSOLE_IRQ_DISABLE
+
+config SNSC_EM_INTERACT_ENABLE
+	bool "Enable interaction mode"
+	default y
+
+config SNSC_EM_INTERACT
+	string
+	default "on" if SNSC_EM_INTERACT_ENABLE
+	default "off" if !SNSC_EM_INTERACT_ENABLE
+
+config SNSC_EM_MAX_SHARED_LIBRARIES
+	int "Max number of shared library loaded for symbol search"
+	default "20"
+
+config SNSC_EM_LOGFILENAME
+	string "Log file name"
+	default "/root/exception.txt"
+
+config SNSC_EM_RESET_WATCHDOG
+	bool "Reset watchdog at entering exception monitor"
+	default n
+
+if SNSC_EM_RESET_WATCHDOG
+config SNSC_EM_RESET_WATCHDOG_DEADLINE
+	int "A parameter to pass to watchdog"
+	default 13
+	range 11 15
+	help
+	  A value to specify the watchdog interval. 
+	  11 means 5 seconds, 12 means 10 seconds, and 15 means 80 seconds.
+endif
+
+config SNSC_EM_PRINT_INFO_EXTERNAL
+	bool "Print exception info to external via registered function"
+	default n
+
+if SNSC_EM_PRINT_INFO_EXTERNAL
+
+config SNSC_EM_PRINT_INFO_EXTERNAL_ALWAYS
+	bool "Print exception info unconditionally"
+	default n
+
+endif
+
+choice
+	prompt "Output of an initial dump"
+	default SNSC_EM_INITDUMP_BOTH
+
+config SNSC_EM_INITDUMP_CONSOLE
+	bool "Console"
+
+config SNSC_EM_INITDUMP_FILE
+	bool "File"
+
+config SNSC_EM_INITDUMP_NOLOG
+	bool "Console and File"
+
+config SNSC_EM_INITDUMP_BOTH
+	bool "Console and File with LOG Driver"
+
+config SNSC_EM_INITDUMP_NONE
+	bool "None"
+
+endchoice
+
+config SNSC_EM_INITDUMP
+	string
+	default "console" if SNSC_EM_INITDUMP_CONSOLE
+	default "file" if SNSC_EM_INITDUMP_FILE
+	default "nolog" if SNSC_EM_INITDUMP_NOLOG
+	default "both" if SNSC_EM_INITDUMP_BOTH
+	default "none" if SNSC_EM_INITDUMP_NONE
+
+config SNSC_EM_REBOOT_FLAG
+	bool "Reboot the system when Exception Monitor dumps all the info"
+	default n
+
+config SNSC_EM_REBOOT
+	string
+	default "on" if SNSC_EM_REBOOT_FLAG
+	default "off" if !SNSC_EM_REBOOT_FLAG
+
+# architecture selection
+config SNSC_EM_ARM
+	bool
+	default y if ARM
+	default n
+
+config SNSC_EM_MIPS
+	bool
+	default y if MIPS
+	default n
+
+config SNSC_EM_PPC
+	bool
+	default y if PPC
+	default n
+
+config SNSC_EM_I686
+	bool
+	default y if X86
+	default n
+
+endif # SNSC_EM

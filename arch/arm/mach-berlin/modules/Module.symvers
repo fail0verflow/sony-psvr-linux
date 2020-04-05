@@ -1,0 +1,4 @@
+0x00000000	cpm_set_core_mode	cpm	EXPORT_SYMBOL
+0x00000000	cpm_unregister_gfx_callback	cpm	EXPORT_SYMBOL
+0x00000000	cpm_register_gfx_callback	cpm	EXPORT_SYMBOL
+0x00000000	cpm_set_gfx3d_loading	cpm	EXPORT_SYMBOL

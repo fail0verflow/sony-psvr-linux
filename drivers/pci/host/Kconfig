@@ -1,0 +1,9 @@
+menu "PCI host controller drivers"
+	depends on PCI
+
+config PCI_BERLIN
+	bool "Marvell Berlin PCIe controller"
+	depends on ARCH_BERLIN
+	depends on OF
+
+endmenu

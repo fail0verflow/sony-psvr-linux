@@ -1,0 +1,94 @@
+#
+# SNSC related configurations
+#
+
+config SNSC_WORKQUEUE_RESCHEDULE
+	bool "Enable rescheduling in workqueue"
+	depends on SNSC
+	default y if SMP && !PREEMPT
+	help
+	  While a CPU executes CPU-bound non-sleeping work from workqueue,
+	  other processors can add more works to workqueue rapidly.
+	  In this case, workqueue occupy a CPU for a long time
+	  and it causes soft lockup.
+	  Enable this workaround to add rescheduling in run_workqueue().
+
+config SNSC_WORKQUEUE_DEADLOCK_FIX_CHECK_CURRENT
+	bool "Fix deadlock in workqueue by checking current"
+	depends on SNSC
+	default y
+	help
+	  We need the change below to fix BUG_ON in run_workqueue().
+	    GIT: abbeb88d00bef294ce661a9229c1dc31be064545
+	    blk_sync_queue() should cancel request_queue->unplug_work
+	  But this change causes a deadlock rarely.
+	  Enable this config to fix this problem.
+
+config SNSC_SET_THREAD_PRIORITY
+	bool
+	depends on SNSC
+	default n
+
+config SNSC_PRINTK_CUSTOM_LOG_DRIVER
+	bool "Support for printk log driver"
+	depends on SNSC
+	default n
+
+config SNSC_PRINTK_EXCLUSIVE_OUTPUT
+	bool "Exclusive printk output"
+	depends on SNSC
+	depends on SMP
+	default n
+	help
+	  On racy condition on SMP system, it's possible that a string
+	  of printk by a CPU is just stored into internal buffer, and
+	  printk by another CPU actually puts it to console. In this
+	  case, duration of later printk may increase, because later
+	  printk have to handle a string of former printk in addition
+	  to its own string. This behavior may cause some issue, for
+	  example, IRQ disabled for unexpected long period. To avoid
+	  such a behavior, this option ensures that each printk
+	  exclusively grabs console, and puts its own string only to
+	  console. Note that enabling this trade off latency of
+	  printk.
+
+config SNSC_POSIX_CLOCK_SNSC_RAW_CLOCK
+	bool "POSIX clock support for snsc_raw_clock()"
+	depends on SNSC
+	default n
+	help
+	  This option enables special POSIX clock to be able to get a value
+	  of snsc_raw_clock() from user space by clock_gettime() with special
+	  clock ID (CLOCK_SNSC_RAW_CLOCK).
+	  Note: CLOCK_SNSC_RAW_CLOCK is non-compliant with POSIX specification.
+
+config SNSC_DEBUG_CAPABILITY
+	bool "Enable no capability messages"
+	depends on SNSC
+	default n
+	help
+	  This option enables debug messages to see which capability is required.
+
+config SNSC_DEBUG_CAPABILITY_OOPS
+	bool "Enable no capability oops"
+	depends on SNSC_DEBUG_CAPABILITY
+	default n
+	help 
+	  If y, an exception happens when a required capability is not equiped.
+
+config SNSC_DEBUG_CAPABILITY_DETAIL
+	bool "Enable capability details"
+	depends on SNSC_DEBUG_CAPABILITY
+	default n
+	help 
+	  If y, print deatils about capability.
+
+config SNSC_SCHED_RT_PERIOD_US_DEFAULT
+	int "Default value of /proc/sys/kernel/sched_rt_period_us"
+	default 1000000
+	range 100000 2000000
+
+config SNSC_SCHED_RT_RUNTIME_US_DEFAULT
+	int "Default value of /proc/sys/kernel/sched_rt_runtime_us"
+	default 950000
+	range 90000 SNSC_SCHED_RT_PERIOD_US_DEFAULT

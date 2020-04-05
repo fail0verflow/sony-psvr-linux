@@ -1,0 +1,69 @@
+/*
+ * MARVELL BERLIN2DTV MK board device tree source
+ *
+ * Author:	Jisheng Zhang <jszhang@marvell.com>
+ * Copyright (c) 2013 Marvell International Ltd.
+ *		http://www.marvell.com
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+*/
+
+/dts-v1/;
+/include/ "berlin2q.dtsi"
+
+/ {
+	model = "MARVELL BG2DTV MK board based on BERLIN2DTV";
+	compatible = "marvell,berlin2dtv-mk", "marvell,berlin2dtv", "marvell,berlin";
+	soc {
+		usb@F7A30000 {
+			status = "disabled";
+		};
+
+		sdhci@F7AB0000 {
+			vqmmc-supply = <&vqmmc_reg_sdio0>;
+		};
+
+		sdhci@F7AB0800 {
+			vmmc-supply = <&vmmc_reg_sdio1>;
+			vqmmc-supply = <&vqmmc_reg_sdio1>;
+		};
+
+		vqmmc_reg_sdio0: vqmmc_sdio0 {
+			compatible = "regulator-gpio";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <3300000>;
+			regulator-name = "vqmmc_sdio0";
+			regulator-type = "voltage";
+			gpios = <&banke 7 0>;
+			states = <3300000 0x1
+				1800000 0x0>;
+		};
+
+		vmmc_reg_sdio1: vmmc_sdio1 {
+			compatible = "regulator-fixed";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			regulator-name = "vmmc_sdio1";
+			enable-active-high;
+			regulator-boot-on;
+			gpio = <&banka 13 0>;
+		};
+
+		vqmmc_reg_sdio1: vqmmc_sdio1 {
+			compatible = "regulator-gpio";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <3300000>;
+			regulator-name = "vqmmc_sdio1";
+			regulator-type = "voltage";
+			gpios = <&bankb 16 0>;
+			states = <3300000 0x1
+				1800000 0x0>;
+		};
+
+		sdhci1:sdhci@F7AB0000 {
+			marvell,txcfg = <0x80a400b0>;
+		};
+	};
+};

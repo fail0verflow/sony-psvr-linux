@@ -1,0 +1,68 @@
+/*
+ * MARVELL BERLIN2Q4K SoC device tree source
+ *
+ * Author:	Jisheng Zhang <jszhang@marvell.com>
+ * Copyright (c) 2013 Marvell Technology Group Ltd.
+ *		http://www.marvell.com
+ *
+ * MARVELL BERLIN2Q4K SoC device nodes are listed in this file.
+ * BERLIN2Q4K based board files can include this file and provide
+ * values for board specfic bindings.
+ *
+ * Note: This file does not include device nodes for all the controllers in
+ * BERLIN2Q4K SoC. As device tree coverage for BERLIN2Q4K increases,
+ * additional nodes can be added to this file.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+*/
+
+/include/ "berlin2q-common.dtsi"
+/ {
+	clocks {
+		sdioxinclk: sdioxinclk {
+			reg = <0xF7EA0168 4>;
+		};
+
+		sdio1xinclk: sdio1xinclk {
+			reg = <0xF7EA016C 4>;
+		};
+
+		gfx3dcoreclk: gfx3dcoreclk {
+			reg = <0xF7EA0158 4>;
+		};
+
+		gfx3dsysclk: gfx3dsysclk {
+			reg = <0xF7EA015C 4>;
+		};
+
+		gfx3dshclk: gfx3dshclk {
+			reg = <0xF7EA01BC 4>;
+		};
+	};
+
+	soc {
+		gpu3d {
+			marvell,core-clock-register = <0xF7EA0158>;
+			marvell,sys-clock-register = <0xF7EA015C>;
+			marvell,sh-clock-register = <0xF7EA01BC>;
+		};
+
+		pcie@F7E40000 {
+			compatible = "marvell,berlin-pcie";
+			reg = <0xF7E40000 0x10000>;
+			#address-cells = <3>;
+			#size-cells = <2>;
+			#interrupt-cells = <1>;
+			interrupt-map-mask = <0 0 0 0>;
+			interrupt-map = <0 0 0 0 &gic 0 50 4>;
+			resets = <&chip 0x10C 2 1>;
+			bus-range = <0x00 0x00>;
+			interrupts = <0 50 4  0 51 4>;
+			reset-gpio = <&banke 6 0>;
+			ranges = <0x82000000 0 0x00000000 0xe0000000 0 0x10000000>;
+			status = "disabled";
+		};
+	};
+};

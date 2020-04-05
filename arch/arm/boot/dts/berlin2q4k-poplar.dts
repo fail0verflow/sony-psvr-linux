@@ -1,0 +1,103 @@
+/*
+ * MARVELL BERLIN2Q4K POPLAR board device tree source
+ *
+ * Author:	Jisheng Zhang <jszhang@marvell.com>
+ * Copyright (c) 2014 Marvell International Ltd.
+ *		http://www.marvell.com
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+*/
+
+/dts-v1/;
+/include/ "berlin2q4k.dtsi"
+
+/ {
+	model = "MARVELL BG2Q4K POPLAR board based on BERLIN2Q4K";
+	compatible = "marvell,berlin2q4k-poplar", "marvell,berlin2q4k", "marvell,berlin";
+
+	cpus {
+		cpu@0 {
+			cpu0-supply = <&vcpu>;
+		};
+	};
+
+	soc {
+		sdhci1:sdhci@F7AB0000 {
+			status = "disabled";
+		};
+
+		sdhci2:sdhci@F7AB0800 {
+			status = "disabled";
+		};
+
+		rfkill {
+			pdn-gpio = <&banke 7 0>;
+		};
+
+		spi2: spi@F7FC6000 {
+			status = "okay";
+			spi@0 {
+				compatible = "spidev";
+				reg = <0>;
+				spi-max-frequency = <50000000>;
+			};
+		};
+
+		i2c@2 {
+			i2c-switch@70 {
+				compatible = "nxp,pca9543";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0x70>;
+
+				i2c@0 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <0>;
+					pg867 {
+						#address-cells = <1>;
+						#size-cells = <0>;
+						compatible = "marvell,pg86x";
+						reg = <0x19>;
+						vcpu:BK1_TV@0 {
+							regulator-name = "vcpu";
+							regulator-min-microvolt = <900000>;
+							regulator-max-microvolt = <1350000>;
+							regulator-always-on;
+							regulator-boot-on;
+						};
+
+						vpuc:BK2_TV@0 {
+							regulator-name = "vpuc";
+							regulator-min-microvolt = <1000000>;
+							regulator-max-microvolt = <2000000>;
+							regulator-always-on;
+							regulator-boot-on;
+						};
+					};
+				};
+
+				i2c@1 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <1>;
+					pg867 {
+						#address-cells = <1>;
+						#size-cells = <0>;
+						compatible = "marvell,pg86x";
+						reg = <0x19>;
+						vcore:BK1_TV@1 {
+							regulator-name = "vcore";
+							regulator-min-microvolt = <900000>;
+							regulator-max-microvolt = <1350000>;
+							regulator-always-on;
+							regulator-boot-on;
+						};
+					};
+				};
+			};
+		};
+	};
+};

@@ -1,0 +1,192 @@
+config ARCH_BERLIN
+	bool "Marvell Berlin SoCs" if ARCH_MULTI_V7
+	select ARCH_HAS_CPUFREQ
+	select ARCH_HAS_OPP
+	select ARCH_REQUIRE_GPIOLIB
+	select ARM_GIC
+	select COMMON_CLK
+	select CPU_V7
+	select DW_APB_ICTL
+	select DW_APB_TIMER_OF
+	select GENERIC_CLOCKEVENTS
+	select GENERIC_IRQ_CHIP
+	select MIGHT_HAVE_CACHE_L2X0
+	select HAVE_ARM_SCU
+	select HAVE_SMP
+	select HAVE_ARM_TWD if LOCAL_TIMERS
+	select LOCAL_TIMERS if SMP
+	select MIGHT_HAVE_PCI
+	select SPARSE_IRQ
+	select USB_ARCH_HAS_EHCI if USB_SUPPORT
+	select USE_OF
+
+if ARCH_BERLIN
+
+menu "Marvell Berlin SoCs Support"
+
+comment "BERLIN modules"
+
+config BERLIN_SM
+	bool "Support SM CPU"
+	default n
+	help
+	  Enable support for SM(System Manager) which is designed for front
+	  panel control and power management.
+
+config BERLIN_IR
+	bool "Support Infra-Red remote controlle"
+	depends on BERLIN_SM
+	default n
+	help
+	  Enable support for Infra-Red remote controller
+
+config BERLIN_PXA3XX_NFC
+	tristate "Support NAND Flash Controller (fork of pxa3xx_nand)"
+	default n
+	help
+	  A fork of mainline pxa3xx_nand.c. This NFC has no dedicated interrupt, but SoC
+	  contains a powerfull pbridge DMA engine whose interrupt can be enabled/disabled.
+	  So the driver could work in 3 modes: nonDMA, polling-DMA, interrupt-DMA.
+
+config BERLIN_NAND_RANDOMIZER
+	bool "Support software NAND randomizer"
+	default y
+	depends on BERLIN_PXA3XX_NFC
+	help
+	  To improve data stability for some large-capacity MLC(multipil-level cell) chips,
+	  data have to be randomized before storing into, or
+	  derandomized after reading out, from the physical cells.
+	  For chips that don't build in HW randomizer, SW randomizer is needed.
+	  Say Y here if you have no idea
+
+config BERLIN_NAND_READ_RETRY
+	bool "Support NAND read retry when ecc fail in read operation"
+	default y
+	depends on BERLIN_PXA3XX_NFC
+	help
+	  To improve nand read ability of error correction.When ecc fail in read operation,
+	  change the read cmd parameter of nand chip. Every kind of Nand chip's READ RETRY feature
+	  diff from each other.If nand chip do not support READ RETRY, this feature will do nothin.
+	  Now support hynix nand chip read retry.
+
+config BERLIN_GPU
+	tristate "SoC's GPU support"
+	default m
+	help
+	  2D and 3D GPU support
+
+config BERLIN_SDIO_BT_CHAR_8777
+	tristate "SDIO Bluetooth char device for bt8777 module"
+	default n
+	depends on MMC_SDHCI_MV
+	help
+	  This is the bt char module for Berlin. Please try build it for module only.
+
+config BERLIN_SDIO_WLAN_8777
+	tristate "SDIO Wlan (IEEE802.11 A|B|G|N) driver for wlan8777 module"
+	default n
+	depends on MMC_SDHCI_MV
+	help
+	  This is the wifi module for Berlin. Please try build it for module only.
+
+config BERLIN_SDIO_WLAN_8801
+	tristate "SDIO Wlan (IEEE802.11 A|B|G|N) driver for wlan8801 module"
+	default n
+	depends on MMC_SDHCI_MV
+	help
+	  This is the wifi module for Berlin. Please try build it for module only.
+
+config BERLIN_SDIO_WLAN_8897
+	tristate "SDIO Wlan (IEEE802.11 A|B|G|N) driver for wlan8897 module"
+	default n
+	depends on MMC_SDHCI_MV
+	select WIRELESS_EXT
+	select WEXT_PRIV
+	select WEXT_SPY
+	help
+	  This is the wifi module for Berlin. Please try build it for module only.
+
+config BERLIN_SDIO_WLAN_8887
+	tristate "SDIO Wlan (IEEE802.11 A|B|G|N) driver for wlan8887 module"
+	default n
+	depends on MMC_SDHCI_MV
+	help
+	  This is the wifi module for Berlin. Please try build it for module only.
+
+config BERLIN_SDIO_BT_CHAR_8897
+	tristate "SDIO Bluetooth char device for bt8897 module"
+	default n
+	depends on MMC_SDHCI_MV
+	select WIRELESS_EXT
+	select WEXT_PRIV
+	select WEXT_SPY
+	help
+	  This is the bt char module for Berlin. Please try build it for module only.
+
+config BERLIN_SDIO_BT_CHAR_8887
+	tristate "SDIO Bluetooth char device for bt8887 module"
+	default n
+	depends on MMC_SDHCI_MV
+	help
+	  This is the bt char module for Berlin. Please try build it for module only.
+
+config BERLIN_USB_WLAN_8897
+	tristate "USB Wlan (IEEE802.11 A|B|G|H|N) driver for wlan8897 module"
+	default n
+	depends on USB
+	select WIRELESS_EXT
+	select WEXT_PRIV
+	select WEXT_SPY
+	help
+	  This is the wifi module for Berlin. Please try build it for module only.
+
+config BERLIN_USB_BT_CHAR_8897
+	tristate "BT char driver for usb8897 module"
+	default n
+	depends on USB
+	help
+	  This is the BT char drvier for Berlin. Please try build it for module only.
+
+config BERLIN_USB_WLAN_8797
+	tristate "USB Wlan (IEEE802.11 A|B|G|H|N) driver for wlan8797 module"
+	default n
+	depends on USB
+	select WIRELESS_EXT
+	select WEXT_PRIV
+	select WEXT_SPY
+	help
+	  This is the wifi module for Berlin. Please try build it for module only.
+
+config BERLIN_USB_BT_CHAR_8797
+	tristate "BT char driver for usb8797 module"
+	default n
+	depends on USB
+	help
+	  This is the BT char drvier for Berlin. Please try build it for module only.
+
+config BERLIN_USB_FW_DNLD
+	tristate "USB firmware download tool for usb8797"
+	default n
+	depends on USB
+	select WIRELESS_EXT
+	select WEXT_PRIV
+	select WEXT_SPY
+	help
+	  This is a firmware download tool for Berlin. Please try build it for module only.
+
+config BERLIN_RF4CE
+	tristate "Support RF4CE"
+	default n
+	depends on SPI
+	help
+	  RF4CE support
+
+config BERLIN_PWM
+	bool "Support PWM"
+	default n
+	help
+	  Enable support for PWM
+
+endmenu
+
+endif

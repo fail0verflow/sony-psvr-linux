@@ -1,0 +1,388 @@
+/*
+ * MARVELL BERLIN2CDP SoC device tree source
+ *
+ * Author:	Jisheng Zhang <jszhang@marvell.com>
+ * Copyright (c) 2013 Marvell International Ltd.
+ *		http://www.marvell.com
+ *
+ * MARVELL BERLIN2CDP SoC device nodes are listed in this file.
+ * BERLIN2CDP based board files can include this file and provide
+ * values for board specfic bindings.
+ *
+ * Note: This file does not include device nodes for all the controllers in
+ * BERLIN2CDP SoC. As device tree coverage for BERLIN2CDP increases,
+ * additional nodes can be added to this file.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+*/
+
+/include/ "skeleton.dtsi"
+
+/ {
+	aliases {
+		spi1 = &spi1;
+	};
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a7";
+			reg = <0>;
+			operating-points = <
+				/* kHz    uV */
+				1000000 1200000
+				800000  1200000
+				600000  1200000
+				400000  1200000
+			>;
+			clock-latency = <100000>;
+			clocks = <&cpuclk>;
+		};
+
+		cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a7";
+			reg = <1>;
+		};
+	};
+
+	memory {
+		name = "memory";
+		device_type = "memory";
+		reg = <0x01000000 0x15e00000>;
+	};
+
+	chosen {
+		bootargs = "console=ttyS0,115200";
+	};
+
+	clocks {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		osc: osc {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <25000000>;
+		};
+
+		cpupll: cpupll {
+			compatible = "marvell,berlin2cdp-pll";
+			clocks = <&osc>;
+			#clock-cells = <0>;
+			reg = <0xF7920070 0x14>, <0xF7EA0614 4>;
+			bypass-shift = /bits/ 8 <2>;
+		};
+
+		syspll: syspll {
+			compatible = "marvell,berlin2cdp-pll";
+			clocks = <&osc>;
+			#clock-cells = <0>;
+			reg = <0xF7EA0200 0x14>, <0xF7EA0614 4>;
+			bypass-shift = /bits/ 8 <0>;
+		};
+
+		cpuclk: cpuclk {
+			compatible = "fixed-factor-clock";
+			clocks = <&cpupll>;
+			#clock-cells = <0>;
+			clock-div = <1>;
+			clock-mult = <1>;
+			set-rate-parent;
+		};
+
+		cfgclk: cfgclk {
+			compatible = "marvell,berlin-clk";
+			clocks = <&syspll>;
+			#clock-cells = <0>;
+			reg = <0xF7EA0620 4>;
+			ignore-unused;
+		};
+
+		gfx3dcoreclk: gfx3dcoreclk {
+			compatible = "marvell,berlin-clk";
+			clocks = <&syspll>;
+			#clock-cells = <0>;
+			reg = <0xF7EA062C 4>;
+			ignore-unused;
+		};
+
+		gfx3dsysclk: gfx3dsysclk {
+			compatible = "marvell,berlin-clk";
+			clocks = <&syspll>;
+			#clock-cells = <0>;
+			reg = <0xF7EA0630 4>;
+			ignore-unused;
+		};
+
+		perifclk: perifclk {
+			compatible = "marvell,berlin-clk";
+			clocks = <&syspll>;
+			#clock-cells = <0>;
+			reg = <0xF7EA0644 4>;
+			ignore-unused;
+		};
+
+		nfceccclk: nfceccclk {
+			compatible = "marvell,berlin-clk";
+			clocks = <&syspll>;
+			#clock-cells = <0>;
+			reg = <0xF7EA0658 4>;
+			ignore-unused;
+		};
+
+		sd0clk: sd0clk {
+			compatible = "marvell,berlin-clk";
+			clocks = <&syspll>;
+			#clock-cells = <0>;
+			reg = <0xF7EA065C 4>;
+			ignore-unused;
+		};
+	};
+
+	soc {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "simple-bus";
+		interrupt-parent = <&gic>;
+		ranges;
+
+		sw_generic1 {
+			compatible = "marvell,berlin-sw_generic1";
+			reg = <0xF7EA001C 4>;
+		};
+
+		timer {
+			compatible = "arm,armv7-timer";
+			interrupts = <1 13 0xf08>,
+				     <1 14 0xf08>,
+				     <1 11 0xf08>,
+				     <1 10 0xf08>;
+			clock-frequency = <25000000>;
+		};
+
+		gic:interrupt-controller@F7901000 {
+			compatible = "arm,cortex-a15-gic";
+			#interrupt-cells = <3>;
+			interrupt-controller;
+			reg = <0xF7901000 0x1000>,
+			      <0xF7902000 0x1000>;
+		};
+
+		pmu {
+			compatible = "arm,cortex-a7-pmu";
+			interrupts = <0 23 4  0 24 4>;
+		};
+
+		usbphy0: usbphy@F7B74000 {
+			compatible = "marvell,berlin-usbphy";
+			reg = <0xF7B74000 128>;
+			phy-mode = <2>;
+		};
+
+		usb@F7ED0000 {
+			compatible = "marvell,berlin-ehci";
+			reg = <0xF7ED0000 0x10000>;
+			interrupts = <0 11 4>;
+			usb-phy = <&usbphy0>;
+		};
+
+		sdhci@F7AB0000 {
+			compatible = "marvell,berlin-sdhci";
+			reg = <0xF7AB0000 0x200>;
+			interrupts = <0 13 4>;
+			clocks = <&nfceccclk>;
+			marvell,card-wired;
+			marvell,8bit-data;
+		};
+
+		sdhci@F7AB0800 {
+			compatible = "marvell,berlin-sdhci";
+			reg = <0xF7AB0800 0x200>;
+			interrupts = <0 15 4>;
+			clocks = <&sd0clk>;
+		};
+
+		apb_ictl: interrupt-controller@F7E83800 {
+			compatible = "snps,dw-apb-ictl";
+			interrupts = <0 8 4>;
+			interrupt-controller;
+			#interrupt-cells = <1>;
+			reg = <0xF7E83800 0x30>;
+		};
+
+		sm_ictl: interrupt-controller@F7FCE000 {
+			compatible = "snps,dw-apb-ictl";
+			interrupts = <0 17 4>;
+			interrupt-controller;
+			#interrupt-cells = <1>;
+			reg = <0xF7FCE000 0x30>;
+		};
+
+		timer0: apbtimer@F7E82C00 {
+			compatible = "snps,dw-apb-timer-osc";
+			interrupt-parent = <&apb_ictl>;
+			interrupts = <8>;
+			clock-freq = <100000000>;
+			reg = <0xF7E82C00 0x14>;
+		};
+
+		timer1: apbtimer@F7E82C14 {
+			compatible = "snps,dw-apb-timer-osc";
+			clock-freq = <100000000>;
+			reg = <0xF7E82C14 0x14>;
+		};
+
+		uart0: uart@F7FC9000 {
+			compatible = "snps,dw-apb-uart";
+			reg = <0xF7FC9000 0x100>;
+			interrupt-parent = <&sm_ictl>;
+			interrupts = <8>;
+			clock-frequency = <25000000>;
+			reg-shift = <2>;
+		};
+
+		gpio0: apbgpio@F7E80400 {
+			compatible = "snps,dw-apb-gpio";
+			dev_name = "gpio_soc_0";
+			reg = <0xF7E80400 0x400>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			banka: gpio-controller@0 {
+				compatible = "snps,dw-apb-gpio-bank";
+				gpio-controller;
+				reg = <0>;
+				#gpio-cells = <2>;
+				nr-gpio = <32>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				interrupt-parent = <&apb_ictl>;
+				interrupts = <0>;
+			};
+		};
+
+		gpio1: apbgpio@F7E80800 {
+			compatible = "snps,dw-apb-gpio";
+			dev_name = "gpio_soc_1";
+			reg = <0xF7E80800 0x400>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			bankb: gpio-controller@1 {
+				compatible = "snps,dw-apb-gpio-bank";
+				gpio-controller;
+				reg = <0>;
+				#gpio-cells = <2>;
+				nr-gpio = <32>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				interrupt-parent = <&apb_ictl>;
+				interrupts = <1>;
+			};
+		};
+
+		i2c0: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "snps,designware-i2c";
+			interrupt-parent = <&apb_ictl>;
+			clocks = <&cfgclk>;
+			reg = <0xF7E81400 0x100>;
+			interrupts = <4>;
+		};
+
+		i2c1: i2c@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "snps,designware-i2c";
+			interrupt-parent = <&apb_ictl>;
+			clocks = <&cfgclk>;
+			reg = <0xF7E81800 0x100>;
+			interrupts = <5>;
+		};
+
+		spi1: spi@F7E81C00 {
+			compatible = "snps,designware-spi";
+			reg = <0xF7E81C00 0x100>;
+			num-cs = <4>;
+			clocks = <&cfgclk>;
+			interrupt-parent = <&apb_ictl>;
+			interrupts = <7>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+
+		watchdog@F7FC1000 {
+			compatible = "snps,dw-wdt";
+			reg = <0xF7FC1000 0x100>;
+			clocks = <&osc>;
+		};
+
+		tsen@F7FCD000 {
+			compatible = "marvell,berlin2cdp-tsen-adc33";
+			reg = <0xF7FCD014 4>,
+			      <0xF7FCD01C 4>,
+			      <0xF7FCD070 4>,
+			      <0xF7FCD024 4>,
+			      <0xF7FCD028 4>;
+		};
+
+		chipid {
+			compatible = "marvell,berlin-chipid";
+			reg = <0xF7EA0000 12>;
+		};
+
+		amp {
+			compatible = "marvell,berlin-amp";
+			interrupts = <0 35 4  0 33 4  0 34 4  0 1 4  0 29 4>;
+			cec {
+				compatible = "marvell,berlin-cec";
+				interrupt-parent = <&sm_ictl>;
+				interrupts = <18>;
+			};
+		};
+
+		gpu {
+			compatible = "vivante,galcore";
+			marvell,nonsecure-mem-base = <0>;
+			marvell,nonsecure-mem-size = <0x200>;
+			marvell,phy-mem-size = <0x20000000>;
+			ranges;
+
+			core3d {
+				compatible = "vivante,core3d";
+				reg = <0xF7BC0000 0x800>;
+				interrupts = <0 20 4>;
+				clocks = <&gfx3dcoreclk>, <&gfx3dsysclk>;
+				clock-names = "core", "system";
+			};
+		};
+
+		nfc@F7F00000 {
+			compatible = "marvell,berlin-nfc";
+			reg = <0xF7F00000 0x10000>, <0xF7D70000 0x10000>;
+			interrupts = <0 5 4>;
+			marvell,nfc-dma;
+			marvell,nfc-naked-cmd;
+			marvell,nfc-arbi;
+			status = "disabled";
+		};
+	};
+
+	ion {
+		compatible = "marvell,berlin-ion";
+		marvell,ion-pool-num = <2>;
+		reg = <0x1f000000 0x00800000>, <0x1f800000 0x00800000>;
+		reg-names = "video", "audio";
+		marvell,ion-attributes-num-per-pool = <2>;
+		marvell,ion-pool-attributes = <0x00000002 0x00001000
+					0x00000002 0x00001000 >;
+	};
+};
