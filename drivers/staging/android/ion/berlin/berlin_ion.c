@@ -127,7 +127,7 @@ extern int ion_buffer_put(struct ion_buffer *buffer);
 extern struct ion_handle *ion_handle_lookup(struct ion_client *client,
 				struct ion_buffer *buffer);
 extern void ion_handle_get(struct ion_handle *handle);
-extern int ion_handle_put(struct ion_handle *handle);
+extern int ion_handle_put_nolock(struct ion_handle *handle);
 extern int ion_handle_add(struct ion_client *client, struct ion_handle *handle);
 extern struct ion_handle *ion_handle_create(struct ion_client *client,
 				     struct ion_buffer *buffer);
@@ -1422,7 +1422,7 @@ struct ion_handle *ion_gethandle(struct ion_client *client, unsigned int gid)
 	}
 	ret = ion_handle_add(client, handle);
 	if (ret) {
-		ion_handle_put(handle);
+		ion_handle_put_nolock(handle);
 		handle = NULL;
 	}
 end:

@@ -126,7 +126,7 @@ struct ion_heap *ion_carveout_heap_create(struct ion_platform_heap *heap_data)
 {
 	struct ion_carveout_heap *carveout_heap;
 
-	carveout_heap = kzalloc(sizeof(struct ion_carveout_heap), GFP_KERNEL);
+	carveout_heap = kzalloc(sizeof(*carveout_heap), GFP_KERNEL);
 	if (!carveout_heap)
 		return ERR_PTR(-ENOMEM);
 
