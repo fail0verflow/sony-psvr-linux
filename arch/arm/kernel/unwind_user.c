@@ -499,6 +499,7 @@ struct unwind_table *unwind_table_add_user(unsigned long start, unsigned long si
 	struct unwind_table *tab = NULL;
 	struct unwind_table *table;
 	int newtab = 0;
+	struct unwind_table *pnewtab = kmalloc(sizeof(*tab), GFP_KERNEL);
 	pr_debug("%s(%08lx, %08lx, %08lx, %08lx)\n", __func__, start, size,
 		 text_addr, text_size);
 
@@ -512,7 +513,7 @@ struct unwind_table *unwind_table_add_user(unsigned long start, unsigned long si
 		}
 	}
 	if (!tab) {
-		tab = kmalloc(sizeof(*tab), GFP_KERNEL);
+		tab = pnewtab;
 		newtab = 1;
 	}
 
@@ -522,10 +523,14 @@ struct unwind_table *unwind_table_add_user(unsigned long start, unsigned long si
 	tab->end_addr = text_addr + text_size;
 	tab->pid = current->pid;
 
-	if(newtab) {
+	if (newtab) {
 		list_add_tail(&tab->list, &unwind_tables_user);
 	}
 	spin_unlock_irqrestore(&unwind_lock, flags);
+
+	if (!newtab) {
+		kfree(pnewtab);
+	}
 
 	return tab;
 }

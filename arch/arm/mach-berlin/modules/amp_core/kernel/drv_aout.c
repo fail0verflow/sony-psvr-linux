@@ -39,7 +39,9 @@
 #include "api_avio_dhub.h"
 #include "hal_dhub_wrap.h"
 #include "drv_avif.h"
+#ifdef CONFIG_MV_AMP_COMPONENT_HWAPP_ENABLE
 #include "drv_app.h"
+#endif
 
 static INT32 pri_audio_chanId[4] = {
 #if ((BERLIN_CHIP_VERSION == BERLIN_BG4_CD) || (BERLIN_CHIP_VERSION == BERLIN_BG4_CT))
@@ -75,6 +77,10 @@ VOID *AoutFifoGetKernelRdDMAInfo(AOUT_PATH_CMD_FIFO * p_aout_cmd_fifo,	INT pair)
 	return pHandle;
 }
 
+VOID AoutFifoKernelReset ( AOUT_PATH_CMD_FIFO * p_aout_cmd_fifo )
+{
+       p_aout_cmd_fifo->kernel_rd_offset = 0;
+}
 VOID AoutFifoKernelRdUpdate(AOUT_PATH_CMD_FIFO * p_aout_cmd_fifo, INT adv)
 {
 	p_aout_cmd_fifo->kernel_rd_offset += adv;
@@ -233,7 +239,8 @@ VOID aout_start_cmd(AOUT_CTX *hAoutCtx, INT *aout_info, VOID *param)
 	AOUT_DMA_INFO *p_dma_info;
 
 	if (*p == MULTI_PATH) {
-        hAoutCtx->p_ma_fifo = (AOUT_PATH_CMD_FIFO *) param;
+		hAoutCtx->p_ma_fifo = (AOUT_PATH_CMD_FIFO *) param;
+		AoutFifoKernelReset ( hAoutCtx->p_ma_fifo );
 		for (i = 0; i < 4; i++) {
 			p_dma_info =
 			    (AOUT_DMA_INFO *)
@@ -279,6 +286,7 @@ VOID aout_start_cmd(AOUT_CTX *hAoutCtx, INT *aout_info, VOID *param)
 #ifdef CONFIG_MV_AMP_AUDIO_PATH_HDMI_ENABLE
 	else if (*p == HDMI_PATH) {
 		hAoutCtx->p_hdmi_fifo = (AOUT_PATH_CMD_FIFO *) param;
+		AoutFifoKernelReset ( hAoutCtx->p_hdmi_fifo );
 		p_dma_info =
 		    (AOUT_DMA_INFO *) AoutFifoGetKernelRdDMAInfo(hAoutCtx->p_hdmi_fifo,
 								 0);

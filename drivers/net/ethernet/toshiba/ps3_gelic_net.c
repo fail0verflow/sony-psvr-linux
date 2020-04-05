@@ -1,7 +1,7 @@
 /*
  *  PS3 gelic network driver.
  *
- * Copyright (C) 2007 Sony Computer Entertainment Inc.
+ * Copyright (C) 2007 Sony Interactive Entertainment Inc.
  * Copyright 2006, 2007 Sony Corporation
  *
  * This file is based on: spider_net.c
@@ -53,7 +53,7 @@
 #define DRV_NAME "Gelic Network Driver"
 #define DRV_VERSION "2.0"
 
-MODULE_AUTHOR("SCE Inc.");
+MODULE_AUTHOR("SIE Inc.");
 MODULE_DESCRIPTION("Gelic Network driver");
 MODULE_LICENSE("GPL");
 

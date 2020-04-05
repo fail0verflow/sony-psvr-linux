@@ -293,11 +293,6 @@ static int cpm_set_startup_cfg(unsigned int *cfg)
 
     CHECK_TEE_INIT(TEEC_ERROR_BAD_STATE);
 
-    if (!cfg || ((cfg[0]+sizeof(unsigned int)) >= cpm_ca.shm_in.size)) {
-        cpm_trace("%s BAD PARAMETER!\n", __FUNCTION__);
-        return TEEC_ERROR_BAD_PARAMETERS;
-    }
-
     mutex_lock(&cpm_mutex);
 
     memcpy(cpm_ca.shm_in.buffer, cfg, cfg[0]+sizeof(unsigned int));
@@ -383,7 +378,7 @@ static int cpm_get_cp_mod_num(unsigned int *num)
     return result;
 }
 
-static int cpm_get_cp_mod_name(char *name)
+static int cpm_get_cp_mod_name(char *name, unsigned int len)
 {
     TEEC_Result result;
 
@@ -407,7 +402,7 @@ static int cpm_get_cp_mod_name(char *name)
             CPM_GET_MOD_NAME,
             &cpm_ca.op,
             NULL);
-    strcpy(name, (char *) cpm_ca.shm_out.buffer);
+    strncpy(name, (char *) cpm_ca.shm_out.buffer, len);
 
     mutex_unlock(&cpm_mutex);
 
@@ -1190,6 +1185,9 @@ static long cpm_driver_ioctl(struct file *filp, unsigned int cmd,
         if (copy_from_user(cfg, (void __user *)arg, sizeof(unsigned int))){
             return -EFAULT;
         }
+        if (cfg[0] >= cpm_ca.shm_in.size - sizeof(unsigned int)) {
+            return TEEC_ERROR_BAD_PARAMETERS;
+        }
         if (copy_from_user(&cfg[1], (void __user *)arg + sizeof(unsigned int), cfg[0] )){
             return -EFAULT;
         }
@@ -1227,7 +1225,7 @@ static long cpm_driver_ioctl(struct file *filp, unsigned int cmd,
         if (copy_from_user(name, (void __user *)arg, sizeof(unsigned int)))
             return -EFAULT;
 
-        res = cpm_get_cp_mod_name(name);
+        res = cpm_get_cp_mod_name(name, sizeof(name));
 
         CHECK_RESULT(res);
 
@@ -1246,6 +1244,9 @@ static long cpm_driver_ioctl(struct file *filp, unsigned int cmd,
             return -EFAULT;
 
         len = GET_PARAM1(status);
+        if (len >= cpm_ca.shm_in.size - sizeof(unsigned int)*2) {
+            return TEEC_ERROR_BAD_PARAMETERS;
+        }
         res = cpm_get_cp_mod_status(status);
 
         CHECK_RESULT(res);
@@ -1309,6 +1310,9 @@ static long cpm_driver_ioctl(struct file *filp, unsigned int cmd,
             return -EFAULT;
 
         len = GET_PARAM1(status);
+        if (len >= cpm_ca.shm_in.size - sizeof(unsigned int)*2) {
+            return TEEC_ERROR_BAD_PARAMETERS;
+        }
         res = cpm_get_core_clk_freq(status);
         if(res){
             return res;
@@ -1329,6 +1333,9 @@ static long cpm_driver_ioctl(struct file *filp, unsigned int cmd,
             return -EFAULT;
 
         len = GET_PARAM0(status);
+        if (len >= cpm_ca.shm_in.size - sizeof(unsigned int)) {
+            return TEEC_ERROR_BAD_PARAMETERS;
+        }
         res = cpm_get_core_status(status);
 
         CHECK_RESULT(res);

@@ -466,8 +466,12 @@ void reset_adjust(int saveIrq)
         spin_lock_irqsave(&drift_countlock, irqstat);
     }
     amp_trace("reset_adjust, saveIrq %d\n", saveIrq);
+    vip_vpp_drift_info.valid = 0;
+    vip_vpp_drift_info.start_latency = 0;
     vip_vpp_drift_info.drift_count = 0;
+    vip_vpp_drift_info.total_drift_count = 0;
     vip_vpp_drift_info.frame_count = 0;
+    vip_vpp_drift_info.latency_in_the_expected_range = 0;
     start_latency = 0;
     amp_trace("reset_adjust done\n");
 
@@ -767,33 +771,28 @@ void adjust_inout_latency(void)
             //        cur_vip_isr_count, save_vip_isr_count, cur_vpp_isr_count, vpp_isr_count, in_out_latency);
             cur_vip_isr_count = save_vip_isr_count;
             cur_vpp_isr_count = vpp_isr_count;
-            if (cur_vpp_intr_timestamp < cur_vip_intr_timestamp + one_frame_time) {
-                //amp_trace("Check latency. %lld, %lld, %lld\n",
-                //        cur_vpp_intr_timestamp, cur_vip_intr_timestamp,
-                //       cur_vip_intr_timestamp + one_frame_time);
+            if (in_out_latency < one_frame_time) {
+                //amp_trace("Check latency. %d, %lld\n",
+                //        in_out_latency, one_frame_time);
             } else {
-                //amp_trace("Do nothing here. Wait next frame. %lld, %lld, %lld\n",
-                //        cur_vpp_intr_timestamp, cur_vip_intr_timestamp,
-                //        cur_vip_intr_timestamp + one_frame_time);
+                //amp_trace("Do nothing here. Wait next frame. %d, %lld\n",
+                //        in_out_latency, one_frame_time);
                 return;
             }
         } else {
-            if (0 == cur_vpp_isr_count) {
-                if (cur_vpp_intr_timestamp < cur_vip_intr_timestamp + one_frame_time) {
-                    amp_trace("Frist adjust frame. %lld, %lld, %lld\n",
-                            cur_vpp_intr_timestamp, cur_vip_intr_timestamp,
-                            cur_vip_intr_timestamp + one_frame_time);
+            if (cur_vip_isr_count == save_vip_isr_count) {
+                if (one_frame_time <= in_out_latency) {
+                    in_out_latency -= one_frame_time;
                 } else {
-                    amp_trace("Do nothing here. Wait next frame. %lld, %lld, %lld\n",
-                            cur_vpp_intr_timestamp, cur_vip_intr_timestamp,
-                            cur_vip_intr_timestamp + one_frame_time);
+                    amp_trace("ERROR!!! 3D adjust mismatch %lld, %lld, %d, %lld\n",
+                            cur_vip_isr_count, save_vip_isr_count, in_out_latency,
+                            one_frame_time);
                     return;
                 }
             }
 
             cur_vip_isr_count = save_vip_isr_count;
             cur_vpp_isr_count = vpp_isr_count;
-
         }
     } else {
         // Go to promise vpp and vip isr count adding one at the same count
@@ -877,10 +876,18 @@ void adjust_inout_latency(void)
         case TG_CHANGE_STATE_DONE: {
             //record input/output clock drifting to adjust AVPLL
             spin_lock(&drift_countlock);
-    //        vip_vpp_drift_info.drift_count += (in_out_latency - start_latency);    //accumulate drifting time of each frame and use average
+
+            vip_vpp_drift_info.valid = 1;
             vip_vpp_drift_info.start_latency = start_latency;
             vip_vpp_drift_info.drift_count = (in_out_latency - start_latency);    //current drifting
+            vip_vpp_drift_info.total_drift_count += vip_vpp_drift_info.drift_count;
             vip_vpp_drift_info.frame_count += 1;
+            if (((LATENCY_EXPECTED - LATENCY_THRESHOLD) <= in_out_latency) &&
+                (in_out_latency <= (LATENCY_EXPECTED + LATENCY_THRESHOLD))) {
+              vip_vpp_drift_info.latency_in_the_expected_range = 1;
+            } else {
+              vip_vpp_drift_info.latency_in_the_expected_range = 0;
+            }
             spin_unlock(&drift_countlock);
             break;
         }

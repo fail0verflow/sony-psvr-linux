@@ -56,6 +56,7 @@
 #include <linux/spinlock.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION (3,10,0)
 #include <../drivers/staging/android/ion/ion.h>
+#include <../drivers/staging/android/ion/ion_priv.h>
 #else
 #include <linux/ion.h>
 #endif
@@ -87,8 +88,6 @@
 #endif
 #include "drv_avif.h"
 #include "drv_aout.h"
-#include "drv_app.h"
-#include "drv_zsp.h"
 #include "drv_vpu.h"
 #include "drv_vpp.h"
 
@@ -101,10 +100,16 @@
   */
 static AVIF_CTX *hAvifCtx = NULL;
 static AOUT_CTX *hAoutCtx = NULL;
-static APP_CTX *hAppCtx = NULL;
-static ZSP_CTX *hZspCtx = NULL;
 static VPP_CTX *hVppCtx = NULL;
 static VPU_CTX *hVpuCtx = NULL;
+#ifdef CONFIG_MV_AMP_COMPONENT_ZSP_ENABLE
+#include "drv_zsp.h"
+static ZSP_CTX *hZspCtx = NULL;
+#endif
+#ifdef CONFIG_MV_AMP_COMPONENT_HWAPP_ENABLE
+#include "drv_app.h"
+static APP_CTX *hAppCtx = NULL;
+#endif
 
 #ifdef BERLIN_BOOTLOGO
 #define MEMMAP_AVIO_BCM_REG_BASE			0xF7B50000
@@ -211,6 +216,13 @@ static INT debug_ctl;
 
 static INT isAmpReleased = 0;
 
+#define HEAP_ID_NW				2
+#define HEAP_ID_NW_NONCACHE		3
+static unsigned long nw_start = 0;
+static unsigned long nw_noncache_start = 0;
+static long nw_size = 0;
+static long nw_noncache_size = 0;
+
 static INT amp_device_init(struct amp_device_t *amp_dev, UINT user)
 {
     hVppCtx = drv_vpp_init();
@@ -259,6 +271,14 @@ static INT amp_device_init(struct amp_device_t *amp_dev, UINT user)
     if(hAvifCtx){
         hAoutCtx->p_arc_fifo = &hAvifCtx->arc_fifo;
     }
+
+	// get heap info
+	nw_start          = berlin_get_heap_addr(HEAP_ID_NW);
+	nw_noncache_start = berlin_get_heap_addr(HEAP_ID_NW_NONCACHE);
+	nw_size           = berlin_get_heap_size(HEAP_ID_NW);
+	nw_noncache_size  = berlin_get_heap_size(HEAP_ID_NW_NONCACHE);
+	nw_size += nw_noncache_size;
+
 	amp_trace("amp_device_init ok");
 
 	return S_OK;
@@ -288,6 +308,29 @@ static INT amp_device_exit(struct amp_device_t *amp_dev, UINT user)
 
 	return S_OK;
 }
+
+/****************************************************
+ *  address check
+ ****************************************************/
+int addr_check_normal_world(unsigned long addr, long size)
+{
+	if (size == 0 || size >= nw_size  ||
+		(addr - nw_start) > nw_size  ||
+		(addr + size - nw_start) > nw_size ) {
+		return -1;
+	}
+	return 0;
+}
+int addr_check_normal_world_noncache(unsigned long addr, long size)
+{
+	if (size == 0 || size >= nw_noncache_size  ||
+		(addr - nw_noncache_start) > nw_noncache_size  ||
+		(addr + size - nw_noncache_start) > nw_noncache_size ) {
+		return -1;
+	}
+	return 0;
+}
+
 
 /*******************************************************************************
   Module API
@@ -498,7 +541,9 @@ amp_driver_ioctl_unlocked(struct file *filp, UINT cmd,
     INT aout_info[2];
     ULONG irqstat=0;
     ULONG aoutirq=0;
+#ifdef CONFIG_MV_AMP_COMPONENT_HWAPP_ENABLE
     ULONG appirq=0;
+#endif
 #ifdef CONFIG_MV_AMP_COMPONENT_AIP_ENABLE
     ULONG aipirq=0;
     INT aip_info[3];
@@ -696,12 +741,14 @@ amp_driver_ioctl_unlocked(struct file *filp, UINT cmd,
 		if (avif_msg.msg_type == AVIF_MSG_NOTIFY_STABLE){
 			amp_trace("AVIF stable\n");
 			vip_stable = 1;
+			amp_trace("end AVIF stable\n");
 		} else if (avif_msg.msg_type == AVIF_MSG_NOTIFY_VPP_RES_SET) {
 			amp_trace("VPP res set done. vpp_cpcb0_res %d, vpp_4k_res %d\n",
 					avif_msg.para0, avif_msg.para1);
 			vpp_res_set = 1;
 			vpp_cpcb0_res = avif_msg.para0;
 			vpp_4k_res = avif_msg.para1;
+			amp_trace("end VPP res set done\n");
 		} else if (avif_msg.msg_type == AVIF_MSG_NOTIFY_VPP_DISCONNECT) {
 			amp_trace("VPP disconnect\n");
 			vpp_res_set = 0;
@@ -709,6 +756,7 @@ amp_driver_ioctl_unlocked(struct file *filp, UINT cmd,
 			vpp_4k_res = -1;
 			reset_adjust(1);
 			tg_changed = TG_CHANGE_STATE_CHECK;
+			amp_trace("end VPP disconnect\n");
 		} else if (avif_msg.msg_type == AVIF_MSG_SET_TV_VIEW_MODE) {
 			if (video_mode != MODE_TV_VIEW) {
 				amp_trace("Set natvie mode\n");
@@ -716,6 +764,7 @@ amp_driver_ioctl_unlocked(struct file *filp, UINT cmd,
 				reset_adjust(1);
 				tg_changed = TG_CHANGE_STATE_CHECK;
 				video_mode = MODE_TV_VIEW;
+				amp_trace("end Set natvie mode\n");
 			} else {
 				amp_trace("Already in the native mode\n");
 			}
@@ -723,17 +772,18 @@ amp_driver_ioctl_unlocked(struct file *filp, UINT cmd,
 			if (video_mode != MODE_INVALID) {
 				amp_trace("Set invalid mode\n");
 				video_mode = MODE_INVALID;
-    			vip_stable_isr = 0;
+				vip_stable_isr = 0;
 				vip_stable = 0;
 				vpp_res_set = 0;
 				vpp_cpcb0_res = -1;
 				vpp_4k_res = -1;
 
-    			vip_isr_count = 0;
-    			cur_vip_isr_count = 0;
-    			vpp_isr_count = 0;
-    			cur_vpp_isr_count = 0;
-    			reset_adjust(1);
+				vip_isr_count = 0;
+				cur_vip_isr_count = 0;
+				vpp_isr_count = 0;
+				cur_vpp_isr_count = 0;
+				reset_adjust(1);
+				amp_trace("end Set invalid mode\n");
 			} else {
 				amp_trace("Already in the invalid mode\n");
 			}
@@ -764,13 +814,20 @@ amp_driver_ioctl_unlocked(struct file *filp, UINT cmd,
 
 		spin_lock_irqsave(&drift_countlock, irqstat);
 
+		internal_vip_vpp_drift_info.valid = vip_vpp_drift_info.valid;
 		internal_vip_vpp_drift_info.start_latency = vip_vpp_drift_info.start_latency;
 		internal_vip_vpp_drift_info.drift_count = vip_vpp_drift_info.drift_count;
+		internal_vip_vpp_drift_info.total_drift_count = vip_vpp_drift_info.total_drift_count;
 		internal_vip_vpp_drift_info.frame_count = vip_vpp_drift_info.frame_count;
+		internal_vip_vpp_drift_info.latency_in_the_expected_range =
+		    vip_vpp_drift_info.latency_in_the_expected_range;
 
+		vip_vpp_drift_info.valid  = 0;
 		vip_vpp_drift_info.start_latency = 0;
 		vip_vpp_drift_info.drift_count = 0;
+		vip_vpp_drift_info.total_drift_count = 0;
 		vip_vpp_drift_info.frame_count = 0;
+		vip_vpp_drift_info.latency_in_the_expected_range = 0;
 
 		spin_unlock_irqrestore(&drift_countlock, irqstat);
 
@@ -1007,7 +1064,7 @@ amp_driver_ioctl_unlocked(struct file *filp, UINT cmd,
     case AOUT_IOCTL_STOP_CMD:
         {
             UINT32 output_port;
-            if (copy_from_user(aout_info, (VOID __user *)arg, 2 * sizeof(INT)))
+            if (copy_from_user(aout_info, (VOID __user *)arg, 1 * sizeof(INT)))
                 return -EFAULT;
 
             output_port = aout_info[0];
@@ -1034,55 +1091,11 @@ amp_driver_ioctl_unlocked(struct file *filp, UINT cmd,
 	/**************************************
 	 * AIP IOCTL
 	 **************************************/
-	case AIP_IOCTL_START_CMD:
-		if (copy_from_user
-		    (aip_info, (VOID __user *)arg, 3 * sizeof(INT))) {
-			return -EFAULT;
-		}
-
-		if ((SPDIFRX_AUDIO_SOURCE == aip_info[2]) && hVppCtx) {
-			hVppCtx->is_spdifrx_enabled = 1;
-		}
-		gid = aip_info[1];
-		if (ionc) {
-			ionh = ion_gethandle(ionc, gid);
-		}
-		if (ionh) {
-			hAvifCtx->gstAipIon.ionh = ionh;
-			param = ion_map_kernel(ionc, ionh);
-		}
-		if (!param) {
-			amp_trace("ctl:%x bad shm mem offset:%x\n", AIP_IOCTL_START_CMD, shm_mem);
-			return -EFAULT;
-		}
-		//MV_SHM_Takeover(shm_mem);
-		spin_lock_irqsave(&hAvifCtx->aip_spinlock, aipirq);
-		aip_start_cmd(hAvifCtx, aip_info, param);
-		spin_unlock_irqrestore(&hAvifCtx->aip_spinlock, aipirq);
-		break;
-
-	case AIP_IOCTL_STOP_CMD:
-		spin_lock_irqsave(&hAvifCtx->aip_spinlock, aipirq);
-		aip_stop_cmd(hAvifCtx);
-		spin_unlock_irqrestore(&hAvifCtx->aip_spinlock, aipirq);
-
-		if (copy_from_user(aip_info, (VOID __user *)arg, 2 * sizeof(INT))) {
-			return -EFAULT;
-		}
-		gid = aip_info[1];
-		if (ionc && hAvifCtx->gstAipIon.ionh) {
-			ion_unmap_kernel(ionc, hAvifCtx->gstAipIon.ionh);
-			ion_free(ionc, hAvifCtx->gstAipIon.ionh);
-			hAvifCtx->gstAipIon.ionh = NULL;
-		}
-		break;
-
-#ifdef CONFIG_MV_AMP_COMPONENT_AVIN_ENABLE
 	/**************************************
 	 * AIP AVIF IOCTL
 	 **************************************/
 	case AIP_AVIF_IOCTL_START_CMD:
-		if (copy_from_user(aip_info, (VOID __user *)arg, 2 * sizeof(INT))) {
+		if (copy_from_user(aip_info, (VOID __user *)arg, 3 * sizeof(INT))) {
 			return -EFAULT;
 		}
 
@@ -1106,23 +1119,9 @@ amp_driver_ioctl_unlocked(struct file *filp, UINT cmd,
 		spin_unlock_irqrestore(&hAvifCtx->aip_spinlock, aipirq);
 		break;
 
-	case AIP_AVIF_IOCTL_SET_MODE: //MAIN/PIP Audio
-        {
-		INT audio_mode = 0;
-		if (copy_from_user(&audio_mode, (VOID __user *)arg, sizeof(INT)))
-			return -EFAULT;
-		printk("Audio switch mode = 0x%x\r\n", audio_mode);
-		hAvifCtx->IsPIPAudio = audio_mode;
-		break;
-        }
 	case AIP_AVIF_IOCTL_STOP_CMD:
         {
 		aip_avif_stop_cmd(hAvifCtx);
-
-		if (copy_from_user(aip_info, (VOID __user *)arg, 2 * sizeof(INT))) {
-			return -EFAULT;
-		}
-		gid = aip_info[1];
 		if (ionc && hAvifCtx->gstAipIon.ionh) {
 			ion_unmap_kernel(ionc, hAvifCtx->gstAipIon.ionh);
 			ion_free(ionc, hAvifCtx->gstAipIon.ionh);
@@ -1131,7 +1130,6 @@ amp_driver_ioctl_unlocked(struct file *filp, UINT cmd,
 
 		break;
         }
-#endif
 
 	case AIP_IOCTL_SemUp_CMD:
 		{

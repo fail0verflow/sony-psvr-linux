@@ -69,6 +69,8 @@
 #include <linux/em_export.h>
 #include <linux/log_driver_types.h>
 #include <linux/snsc_raw_clock.h>
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
 #ifdef CONFIG_SNSC_EM_USER_HOOK
 #include "em_user_hook.h"
 #endif
@@ -104,10 +106,12 @@ module_param_string(callstack, em_callstack_param, CALLSTACK_PARAM_SIZE,
 #define INITDUMP_CONS 0x00000002
 #define INITDUMP_FILE 0x00000004
 #define INITDUMP_LOG  0x00000008
+#define INITDUMP_ALL  (INITDUMP_CONS | INITDUMP_FILE | INITDUMP_LOG)
 #define REBOOT_BIT    0x00000010
 
-static int em_param_flags = 0x0;
+static uint32_t em_param_flags = 0x0;
 static int is_initdumping = 0;
+static struct proc_dir_entry *em_proc_entry = NULL;
 
 #define ALIGN4(x) (((x) + 0x3) & 0xfffffffc)
 
@@ -351,15 +355,12 @@ static void em_dump_string_to_file(struct file* f, int filter_flag, char * all_b
 	}
 }
 
-int em_dump_write(const char *format, ...)
+int em_dump_vwrite(const char *format, va_list args)
 {
 	char buf[WRITE_BUF_SZ];
-	va_list args;
 	int ret = 0;
 
-	va_start(args, format);
 	vsnprintf(buf, WRITE_BUF_SZ, format, args);
-	va_end(args);
 	buf[WRITE_BUF_SZ - 1] = '\0';
 
 	if (!is_initdumping ||
@@ -371,6 +372,22 @@ int em_dump_write(const char *format, ...)
 #endif
 
 	em_dump_string_to_file(log_file, INITDUMP_FILE, buf, strlen(buf));
+	return ret;
+}	
+
+static int (*em_dump_vwrite_hook)(const char *format, va_list args);
+
+int em_dump_write(const char *format, ...)
+{
+	va_list args;
+	int ret;
+	va_start(args, format);
+	if (em_dump_vwrite_hook) {
+		ret = em_dump_vwrite_hook(format, args);
+	} else {
+		ret = em_dump_vwrite(format, args);
+	}
+	va_end(args);
 	return ret;
 }
 
@@ -404,7 +421,7 @@ static void em_dump_current_task(int argc, char **argv)
 	em_dump_write("last syscall: %ld\n", current->thread.last_syscall);
 #endif
 #ifdef CONFIG_SNSC_EM_ARM
-	em_dump_write("address: %08x, trap_no: %08x, error_code: %08x at epc: %08x \n",
+	em_dump_write("address: %08lx, trap_no: %08lx, error_code: %08lx at epc: %08lx \n",
 		      current->thread.address,
 		      current->thread.trap_no,
 		      current->thread.error_code,
@@ -416,20 +433,23 @@ static void em_dump_current_task(int argc, char **argv)
 void em_dump_modules(int argc, char **argv)
 {
 	struct module *mod;
+	int locked = 0;
 
 	em_dump_write("\n[modules]\n");
 
 	em_dump_write("%10s %8s   %s\n", "Address", "Size", "Module");
 
-	mutex_lock(&module_mutex);
+	if (preemptible())
+		locked = mutex_trylock(&module_mutex);
 	list_for_each_entry(mod, em_modules, list) {
-		em_dump_write("0x%8p %8lu   %s [%8p]\n",
+		em_dump_write("0x%8p %8u   %s [%8p]\n",
 			      mod->module_core,
 			      mod->init_size + mod->core_size,
 			      mod->name,
 			      mod);
 	}
-	mutex_unlock(&module_mutex);
+	if (locked)
+		mutex_unlock(&module_mutex);
 }
 #endif
 
@@ -454,12 +474,12 @@ static void em_dump_system_maps(int argc, char **argv)
 	em_dump_write("start    end      flg offset     name\n");
 
 	for (vm = current->mm->mmap; vm; vm = vm->vm_next) {
-		em_dump_write("%08x-%08x ", vm->vm_start, vm->vm_end);
+		em_dump_write("%08lx-%08lx ", vm->vm_start, vm->vm_end);
 		em_dump_write("%c", (vm->vm_flags & VM_READ) ? 'r' : '-');
 		em_dump_write("%c", (vm->vm_flags & VM_WRITE) ? 'w' : '-');
 		em_dump_write("%c ", (vm->vm_flags & VM_EXEC) ? 'x' : '-');
 
-		em_dump_write("0x%08x ", vm->vm_pgoff * page_size);
+		em_dump_write("0x%08lx ", vm->vm_pgoff * page_size);
 
 		if (vm->vm_file && vm->vm_file->f_dentry &&
 		    vm->vm_file->f_dentry->d_name.name)
@@ -734,9 +754,9 @@ static void em_out_string_file(struct log_header *read_ptr, struct file *log_fil
 				new_line = 1;
 			}
 			if (log_file == NULL) {
-				printk("%s", all_buf);
+				em_dump_write("%s", all_buf);
 			} else {
-				em_dump_string_to_file(log_file, INITDUMP_LOG, all_buf, all_buf_len);
+				em_dump_string_to_file(log_file, INITDUMP_FILE, all_buf, all_buf_len);
 			}
 		}
 	} else {
@@ -889,7 +909,7 @@ static void em_dump_byte(int argc, char **argv)
 
 	buf[16] = 0;
 	while (n < size) {
-		em_dump_write("%08x :", point);
+		em_dump_write("%p :", point);
 		for (i = 0; i < 16; i++) {
 			if (n < size) {
 				if (__get_user(insn, point)) {
@@ -941,7 +961,7 @@ static void em_dump_word(int argc, char **argv)
 
 	buf[16] = 0;
 	while (n < (size / 2)) {
-		em_dump_write("%08x :", point);
+		em_dump_write("%p :", point);
 		for (i = 0; i < 8; i++) {
 			if (n < size) {
 				if (__get_user(insn, point)) {
@@ -994,7 +1014,7 @@ static void em_dump_long(int argc, char **argv)
 
 	buf[16] = 0;
 	while (n < (size / 4)) {
-		em_dump_write("%08x :", point);
+		em_dump_write("%p :", point);
 		for (i = 0; i < 4; i++) {
 			if (n < size) {
 				if (__get_user(insn, point)) {
@@ -1006,7 +1026,7 @@ static void em_dump_long(int argc, char **argv)
 				buf[i * 4 + 1] = em_convert_char(c >> 16);
 				buf[i * 4 + 2] = em_convert_char(c >> 8);
 				buf[i * 4 + 3] = em_convert_char(c);
-				em_dump_write(" %08x", c);
+				em_dump_write(" %08lx", c);
 				n++;
 			} else {
 				buf[i] = ' ';
@@ -1042,7 +1062,7 @@ static void em_write_byte(int argc, char **argv)
 		return;
 	}
 
-	em_dump_write("%08x: ", point);
+	em_dump_write("%p: ", point);
 
 	if (__put_user(datum, point)) {
 		em_dump_write(" (Bad data address)\n");
@@ -1085,7 +1105,7 @@ static void em_write_word(int argc, char **argv)
 		return;
 	}
 
-	em_dump_write("%08x: ", point);
+	em_dump_write("%p: ", point);
 
 	if (__put_user(datum, point)) {
 		em_dump_write(" (Bad data address)\n");
@@ -1129,7 +1149,7 @@ static void em_write_long(int argc, char **argv)
 		return;
 	}
 
-	em_dump_write("%08x: ", point);
+	em_dump_write("%p: ", point);
 
 	if (__put_user(datum, point)) {
 		em_dump_write(" (Bad data address)\n");
@@ -1146,7 +1166,7 @@ static void em_write_long(int argc, char **argv)
 		buf[i * 4 + 1] = em_convert_char(c >> 16);
 		buf[i * 4 + 2] = em_convert_char(c >> 8);
 		buf[i * 4 + 3] = em_convert_char(c);
-		em_dump_write(" %08x", c);
+		em_dump_write(" %08lx", c);
 	}
 	buf[16] = 0;
 	em_dump_write(" : %s\n", buf);
@@ -1402,11 +1422,38 @@ static void em_dump_to_file(void)
 
 #ifdef CONFIG_SNSC_EM_PRINT_INFO_EXTERNAL
 
-static em_printk_t em_ext_printk;
-static em_printk_open_t em_ext_printk_open;
-static em_printk_close_t em_ext_printk_close;
+struct em_ext_info {
+	em_printk_t printk;
+	em_printk_open_t open;
+	em_printk_close_t close;
+	int detailed;
+	int encrypted;
+};
 
-static void em_print_info_external(void)
+static struct em_ext_info ext_info;
+
+static int em_vprintk_external(const char *format, va_list args)
+{
+	char buf[WRITE_BUF_SZ];
+	vsnprintf(buf, WRITE_BUF_SZ, format, args);
+	buf[WRITE_BUF_SZ - 1] = '\0';
+	return ext_info.printk("%s", buf);
+}
+
+static void em_print_info_external_detailed(unsigned long time, unsigned long nanosec_rem)
+{
+	/* hook: off -> on */
+	em_dump_vwrite_hook = em_vprintk_external;
+
+	em_dump_exception(0, NULL);
+	em_dump_log(CONFIG_SNSC_EM_LOGFILE_LOG_MAX_LINES, NULL);
+	em_dump_write(" [%6lu.%06lu] Exception happened\n", time, nanosec_rem / 1000);
+
+	/* hook: on -> off */
+	em_dump_vwrite_hook = NULL;
+}
+
+static void em_print_info_external(unsigned long time, unsigned long nanosec_rem)
 {
 	int ret;
 #ifndef CONFIG_SNSC_EM_PRINT_INFO_EXTERNAL_ALWAYS
@@ -1414,39 +1461,42 @@ static void em_print_info_external(void)
 		return;
 	}
 #endif
-	if (em_ext_printk_open) {
-		ret = em_ext_printk_open();
+	if (ext_info.open) {
+		ret = ext_info.open(ext_info.encrypted);
 		if (ret != 0) {
 			return;
 		}
 	}
-	if (em_ext_printk) {
-		em_ext_printk("a kernel exception (wdt=%s)\n", wdt_fired ? "fired" : "not fired");
+	if (ext_info.printk) {
+		ext_info.printk("a kernel exception (wdt=%s)\n", wdt_fired ? "fired" : "not fired");
+		if (ext_info.detailed) {
+			em_print_info_external_detailed(time, nanosec_rem);
+		}
 	}
-	if (em_ext_printk_close) {
-		em_ext_printk_close();
+	if (ext_info.close) {
+		ext_info.close();
 	}
 }
 
 void em_register_printk_external(em_printk_open_t open, em_printk_t print, em_printk_close_t close)
 {
-	if (em_ext_printk_open == NULL) {
-		em_ext_printk_open = open;
+	if (ext_info.open == NULL) {
+		ext_info.open = open;
 	}
-	if (em_ext_printk == NULL) {
-		em_ext_printk = print;
+	if (ext_info.printk == NULL) {
+		ext_info.printk = print;
 	}
-	if (em_ext_printk_close == NULL) {
-		em_ext_printk_close = close;
+	if (ext_info.close == NULL) {
+		ext_info.close = close;
 	}
 }
 EXPORT_SYMBOL(em_register_printk_external);
 
 void em_unregister_printk_external(void)
 {
-	em_ext_printk_open = NULL;
-	em_ext_printk = NULL;
-	em_ext_printk_close = NULL;
+	ext_info.open = NULL;
+	ext_info.printk = NULL;
+	ext_info.close = NULL;
 }
 EXPORT_SYMBOL(em_unregister_printk_external);
 
@@ -1598,16 +1648,14 @@ void em_exception_monitor(int mode, struct pt_regs *registers)
 	em_disable_irq();
 	em_reset_wdt();
 
-#ifdef CONFIG_SNSC_EM_PRINT_INFO_EXTERNAL
-	em_print_info_external();
-#endif
-
 #ifdef CONFIG_SNSC_EM_LOG_DRIVER
 	if (logable) {
 		int lf_flags = O_CREAT | O_NOFOLLOW | O_APPEND | O_RDWR;
 		loginfo = (struct log_info *)log_buffer;
 		em_open_trunc_file(&log_file, log, lf_flags, CONFIG_SNSC_EM_LOGFILE_MAX_SIZE);
-		em_flush_log();
+		if (em_param_flags & INITDUMP_CONS) {
+			em_flush_log();
+		}
 		em_dump_log_to_file(log_file, CONFIG_SNSC_EM_LOGFILE_LOG_MAX_LINES);
 	}
 #endif
@@ -1627,6 +1675,9 @@ void em_exception_monitor(int mode, struct pt_regs *registers)
 #ifdef CONFIG_SNSC_EM_DISASSEMBLE
 	disasm_point = (unsigned long *)instruction_pointer(em_regs);
 	disasm_size = 16;
+#endif
+#ifdef CONFIG_SNSC_EM_PRINT_INFO_EXTERNAL
+	em_print_info_external(time, nanosec_rem);
 #endif
 #ifdef EMLEGACY_CALLSTACK
 	if (not_interrupt)
@@ -1686,6 +1737,132 @@ void em_exception_monitor(int mode, struct pt_regs *registers)
 	set_fs(fs);
 }
 
+static int em_create_proc_dir(void)
+{
+	em_proc_entry = proc_mkdir("driver/em", NULL);
+	if (!em_proc_entry) {
+		printk(KERN_ERR
+		       "Exception Montior: Unable to create proc entry\n");
+		return -ENOMEM;
+	}
+	return 0;
+}
+
+static void em_remove_proc_dir(void)
+{
+	remove_proc_entry("driver/em", NULL);
+}
+
+static int em_set_initdump(const char *param)
+{
+	uint32_t initdump = 0;
+	if (strncmp(param, "console", 8) == 0)
+		initdump = INITDUMP_CONS;
+	else if (strncmp(param, "file", 5) == 0)
+		initdump = INITDUMP_FILE;
+	else if (strncmp(param, "both", 5) == 0) {
+		initdump = INITDUMP_ALL;
+#ifdef CONFIG_SNSC_EM_PRINT_INFO_EXTERNAL
+		ext_info.detailed = 1;
+#endif		
+	} else if (strncmp(param, "none", 5) == 0)
+		;
+	else {
+		printk("ERROR: parameter `initdump' does not support: %s.\n",
+		       param);
+		return -EINVAL;
+	}
+	em_param_flags = (em_param_flags & ~INITDUMP_ALL) | initdump;
+	return 0;
+}
+
+static const char *em_get_initdump(void)
+{
+	if (em_param_flags & INITDUMP_CONS) {
+		if (em_param_flags & INITDUMP_FILE) {
+			return "both";
+		} else {
+			return "console";
+		}
+	} else if (em_param_flags & INITDUMP_FILE) {
+		return "file";
+	} else {
+		return "none";
+	}
+}
+
+static int em_initdump_show(struct seq_file *sfile, void *v)
+{
+	seq_printf(sfile, "%s\n", em_get_initdump());
+	return 0;
+}
+
+static int em_initdump_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, em_initdump_show, NULL);
+}
+
+static ssize_t em_initdump_write(struct file *file, const char __user * buf,
+			      size_t count, loff_t *ppos)
+{
+	char param[16];
+	if (count <= 0)
+		return 0;
+	if (count > sizeof(param))
+		return -EFBIG;
+	if (copy_from_user(param, buf, count))
+		return -EFAULT;
+	if (param[count - 1] == '\n')  /* proc can include '\n' */
+		param[count - 1] = '\0';
+	if (em_set_initdump(param))
+		return -EINVAL;
+	return count;
+}
+
+static const struct file_operations proc_em_initdump_operations = {
+	.owner		= THIS_MODULE,
+	.open		= em_initdump_open,
+	.read		= seq_read,
+	.write		= em_initdump_write,
+};
+
+static int em_create_misc_proc(struct proc_dir_entry *proc_dir)
+{
+	struct proc_dir_entry *entry;
+	entry = proc_create_data("initdump", S_IWUSR | S_IRUSR, proc_dir, &proc_em_initdump_operations, NULL);
+	if (!entry) {
+		printk(KERN_ERR
+		       "Exception Montior: Unable to create proc entry\n");
+		return -ENOMEM;
+	}
+	return 0;
+}
+
+static void em_remove_misc_proc(void)
+{
+	remove_proc_entry("initdump", em_proc_entry);
+}
+
+static int em_create_proc(void)
+{
+	int ret = em_create_proc_dir();
+	if (ret < 0)
+		return ret;
+
+	ret = em_notify_register(em_proc_entry);
+	if (ret < 0)
+		return ret;
+
+	ret = em_create_misc_proc(em_proc_entry);
+	return ret;
+}
+
+static void em_remove_proc(void)
+{
+	em_remove_misc_proc();
+	em_notify_unregister();
+	em_remove_proc_dir();
+}
 
 #ifdef UNIFIED_DRIVER
 int init_module_exception(void)
@@ -1706,24 +1883,9 @@ static int __init em_module_init(void)
 		return -EINVAL;
 	}
 
-	if (strncmp(initdump, "console", 8) == 0)
-		em_param_flags |= INITDUMP_CONS;
-	else if (strncmp(initdump, "file", 5) == 0)
-		em_param_flags |= INITDUMP_FILE;
-	else if (strncmp(initdump, "nolog", 6) == 0) {
-		em_param_flags |= INITDUMP_CONS;
-		em_param_flags |= INITDUMP_FILE;
-	} else if (strncmp(initdump, "both", 5) == 0) {
-		em_param_flags |= INITDUMP_CONS;
-		em_param_flags |= INITDUMP_FILE;
-		em_param_flags |= INITDUMP_LOG;
-	} else if (strncmp(initdump, "none", 5) == 0)
-		;
-	else {
-		printk("ERROR: parameter `initdump' does not support: %s.\n",
-		       initdump);
-		return -EINVAL;
-	}
+	ret = em_set_initdump(initdump);
+	if (ret < 0)
+		return ret;
 
 	if (strncmp(reboot, "on", 3) == 0)
 		em_param_flags |= REBOOT_BIT;
@@ -1734,7 +1896,7 @@ static int __init em_module_init(void)
 		return -EINVAL;
 	}
 
-	ret = em_notify_register();
+	ret = em_create_proc();
 	if (ret < 0)
 		return ret;
 
@@ -1751,7 +1913,7 @@ void cleanup_module_exception(void)
 static void __exit em_module_exit(void)
 #endif
 {
-	em_notify_unregister();
+	em_remove_proc();
 	em_arch_exit();
 	exception_check = NULL;
 }

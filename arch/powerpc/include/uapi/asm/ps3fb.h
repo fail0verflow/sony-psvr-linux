@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Sony Computer Entertainment Inc.
+ * Copyright (C) 2006 Sony Interactive Entertainment Inc.
  * Copyright 2006, 2007 Sony Corporation
  *
  * This program is free software; you can redistribute it and/or modify it

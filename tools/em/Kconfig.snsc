@@ -138,6 +138,12 @@ config SNSC_EM_PRINT_INFO_EXTERNAL_ALWAYS
 	bool "Print exception info unconditionally"
 	default n
 
+config SNSC_EM_PRINT_INFO_EXTERNAL_ZLIB
+	tristate "Zlib compression for external print"
+	select ZLIB_DEFLATE
+	help
+	  Compresses the printed data
+
 endif
 
 choice

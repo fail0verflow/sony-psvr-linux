@@ -223,17 +223,12 @@ static const struct file_operations proc_em_notify_operations = {
 	.poll		= em_notify_poll,
 };
 
-int em_notify_register(void)
+int em_notify_register(struct proc_dir_entry *proc_dir)
 {
 	struct proc_dir_entry *entry;
 
 	emn_alive = 1;
-	em_proc_entry = proc_mkdir("driver/em", NULL);
-	if (!em_proc_entry) {
-		printk(KERN_ERR
-		       "Exception Montior: Unable to create proc entry\n");
-		return -ENOMEM;
-	}
+	em_proc_entry = proc_dir;
 	entry = proc_create_data("notify", S_IWUSR|S_IRUSR, em_proc_entry, &proc_em_notify_operations, NULL);
 	if (!entry) {
 		printk(KERN_ERR
@@ -252,6 +247,5 @@ void em_notify_unregister(void)
 	mutex_unlock(&emn_mutex);
 
 	remove_proc_entry("notify", em_proc_entry);
-	remove_proc_entry("driver/em", NULL);
 }
 

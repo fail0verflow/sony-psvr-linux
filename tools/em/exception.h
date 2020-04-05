@@ -109,7 +109,7 @@ extern void em_dump_regs_detail(int argc, char **argv);
 extern void em_get_callstack(void);
 extern void em_show_syndrome(void);
 
-extern int em_dump_write(const char *format, ...);
+extern int em_dump_write(const char *format, ...) __attribute__((format (printf,1,2)));
 extern char *em_get_execname(void);
 extern void em_dump_callstack(int argc, char **argv);
 extern int monitor_mode;
@@ -127,7 +127,7 @@ extern void em_disasm_arm(int argc, char **argv, int *disasm_size, unsigned long
 extern void em_arch_reset_cache(void);
 
 #ifdef CONFIG_SNSC_EM_NOTIFY
-extern int em_notify_register(void);
+extern int em_notify_register(struct proc_dir_entry *proc_dir);
 extern void em_notify_unregister(void);
 extern void em_notify_cmd(int argc, char **argv);
 extern void em_notify_enter(void);

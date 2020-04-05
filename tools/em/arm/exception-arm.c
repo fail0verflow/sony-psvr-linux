@@ -86,6 +86,7 @@
 #define ARRAY_NUM(x) (sizeof(x)/sizeof((x)[0]))
 #define ALIGN4(x) (((x) + 0x3) & 0xfffffffc)
 #define FILE int
+#define LOWER_ADDR_DUMP_SIZE 0x200
 
 #ifdef CONFIG_SNSC_EM_DISASSEMBLE
 #ifndef CONFIG_SNSC_EM_I686
@@ -470,19 +471,19 @@ void em_dump_regs(int argc, char **argv)
 	em_dump_write("\n[register dump]\n");
 
 	em_dump_write(
-          "a1: r0: 0x%08x  a2: r1: 0x%08x  a3: r2: 0x%08x  a4: r3: 0x%08x\n",
+          "a1: r0: 0x%08lx  a2: r1: 0x%08lx  a3: r2: 0x%08lx  a4: r3: 0x%08lx\n",
 		      em_regs->ARM_r0, em_regs->ARM_r1,
 		      em_regs->ARM_r2, em_regs->ARM_r3);
 	em_dump_write(
-	  "v1: r4: 0x%08x  v2: r5: 0x%08x  v3: r6: 0x%08x  v4: r7: 0x%08x\n",
+	  "v1: r4: 0x%08lx  v2: r5: 0x%08lx  v3: r6: 0x%08lx  v4: r7: 0x%08lx\n",
 		      em_regs->ARM_r4, em_regs->ARM_r5,
 		      em_regs->ARM_r6, em_regs->ARM_r7);
 	em_dump_write(
-	  "v5: r8: 0x%08x  v6: r9: 0x%08x  v7:r10: 0x%08x  fp:r11: 0x%08x\n",
+	  "v5: r8: 0x%08lx  v6: r9: 0x%08lx  v7:r10: 0x%08lx  fp:r11: 0x%08lx\n",
 		      em_regs->ARM_r8, em_regs->ARM_r9,
 		      em_regs->ARM_r10, em_regs->ARM_fp);
 	em_dump_write(
-	  "ip:r12: 0x%08x  sp:r13: 0x%08x  lr:r14: 0x%08x  pc:r15: 0x%08x\n",
+	  "ip:r12: 0x%08lx  sp:r13: 0x%08lx  lr:r14: 0x%08lx  pc:r15: 0x%08lx\n",
 		      em_regs->ARM_ip, em_regs->ARM_sp,
 		      em_regs->ARM_lr, em_regs->ARM_pc);
 
@@ -497,7 +498,7 @@ void em_dump_regs(int argc, char **argv)
 	case SYSTEM_MODE: mode = mode_list[6]; break;
 	default: mode = mode_list[7];break;
 	}
-	em_dump_write("cpsr: 0x%08x: Flags: %c%c%c%c, "
+	em_dump_write("cpsr: 0x%08lx: Flags: %c%c%c%c, "
 		      "IRQ: o%s, FIQ: o%s, Thumb: o%s, Mode: %s\n",
 		      em_regs->ARM_cpsr,
 		      (em_regs->ARM_cpsr & PSR_N_BIT) ? 'N' : 'n',
@@ -553,11 +554,11 @@ void em_dump_regs_detail(int argc, char **argv)
 #define MASK_ARCH   0x000f0000
 #define MASK_PART   0x0000fff0
 #define MASK_LAYOUT 0x0000000f
-		em_dump_write("* ID code: %08x:  "
-			      "tm: %c, spec: %1x, arch: %1x, "
-			      "part: %3x, layout: %1x\n",
+		em_dump_write("* ID code: %08lx:  "
+			      "tm: %c, spec: %1lx, arch: %1lx, "
+			      "part: %3lx, layout: %1lx\n",
 			      id,
-			      ((id & MASK_ASCII)  >> 24),
+			      (unsigned char)((id & MASK_ASCII)  >> 24),
 			      ((id & MASK_SPEC)   >> 20),
 			      ((id & MASK_ARCH)   >> 16),
 			      ((id & MASK_PART)   >>  4),
@@ -589,7 +590,7 @@ void em_dump_regs_detail(int argc, char **argv)
 		case 0x8: isiz = size_list[6]; break;
 		default:  isiz = size_list[10]; break;
 		}
-		em_dump_write("* Cache Type: %08x:  %s, %s,\n"
+		em_dump_write("* Cache Type: %08lx:  %s, %s,\n"
 			      "\tDCache: %sKB, %s-way, line: %s word\n"
 			      "\tICache: %sKB, %s-way, line: %s word\n",
 			      cache,
@@ -610,7 +611,7 @@ void em_dump_regs_detail(int argc, char **argv)
 
 #define MASK_DTCM 0x00010000
 #define MASK_ITCM 0x00000001
-		em_dump_write("* TCM Status: %08x: "
+		em_dump_write("* TCM Status: %08lx: "
 			      "DTCM %spresent, ITCM %spresent\n",
 			      tcm,
 			      (tcm & MASK_DTCM) ? "" : "not ",
@@ -626,7 +627,7 @@ void em_dump_regs_detail(int argc, char **argv)
 #define MASK_DCACHE 0x00000004
 #define MASK_ALIGN  0x00000002
 #define MASK_MMU    0x00000001
-		em_dump_write("* Control: %08x: L4: %s, Cache: %s replace\n"
+		em_dump_write("* Control: %08lx: L4: %s, Cache: %s replace\n"
 			      "\texception vector at %s endian: %s\n"
 			      "\tICache %sabled, DCache %sabled, "
 			      "Align %sabled, MMU %sabled\n"
@@ -644,8 +645,8 @@ void em_dump_regs_detail(int argc, char **argv)
 			      (control & MASK_ROM) ? "1" : "0",
 			      (control & MASK_SYS) ? "1" : "0");
 
-		em_dump_write("* Translation Table Base: %08x\n", trans);
-		em_dump_write("* Domain Access Control: %08x\n", dac);
+		em_dump_write("* Translation Table Base: %08lx\n", trans);
+		em_dump_write("* Domain Access Control: %08lx\n", dac);
 
 #define MASK_DOMAIN 0x000000f0
 #define MASK_STATUS 0x0000000f
@@ -658,18 +659,18 @@ void em_dump_regs_detail(int argc, char **argv)
 		case 0x8: case 0xa: stat = fault_stat[5]; break;
 		default:            stat = fault_stat[6]; break;
 		}
-		em_dump_write("* Fault Status: data: %08x, inst: %08x\n"
-			      "\tat domain: %x, status: %s\n",
+		em_dump_write("* Fault Status: data: %08lx, inst: %08lx\n"
+			      "\tat domain: %lx, status: %s\n",
 			      d_fsr, i_fsr,
 			      ((d_fsr & MASK_DOMAIN) >> 4), stat);
 
-		em_dump_write("* Fault Address: %08x\n", far);
+		em_dump_write("* Fault Address: %08lx\n", far);
 
 #define MASK_WAY3 0x00000008
 #define MASK_WAY2 0x00000004
 #define MASK_WAY1 0x00000002
 #define MASK_WAY0 0x00000001
-		em_dump_write("* Cache Lockdown: DCache: %08x, ICache: %08x\n"
+		em_dump_write("* Cache Lockdown: DCache: %08lx, ICache: %08lx\n"
 			      "\tDCache: way 3: %s, 2: %s, 1: %s, 0: %s\n"
 			      "\tICache: way 3: %s, 2: %s, 1: %s, 0: %s\n",
 			      d_lock, i_lock,
@@ -712,9 +713,9 @@ void em_dump_regs_detail(int argc, char **argv)
 		case 0xb: isiz = size_list[9]; break;
 		default:  isiz = size_list[10]; break;
 		}
-		em_dump_write("* TCM Region: data: %08x, inst: %08x\n"
-			      "\tDTCM: Base addr: %08x, size: %sKB, %sabled\n"
-			      "\tITCM: Base addr: %08x, size: %sKB, %sabled\n",
+		em_dump_write("* TCM Region: data: %08lx, inst: %08lx\n"
+			      "\tDTCM: Base addr: %08lx, size: %sKB, %sabled\n"
+			      "\tITCM: Base addr: %08lx, size: %sKB, %sabled\n",
 			      d_tcm, i_tcm,
 			      ((d_tcm & MASK_BASE) >> 12), dsiz,
 			      (d_tcm & MASK_ENABLE) ? "en" : "dis",
@@ -723,24 +724,25 @@ void em_dump_regs_detail(int argc, char **argv)
 
 #define MASK_VICT 0x1c000000
 #define MASK_PBIT 0x00000001
-		em_dump_write("* TLB Lockdown: %08x: "
-			      "victim: %x, preserve: %s\n",
+		em_dump_write("* TLB Lockdown: %08lx: "
+			      "victim: %lx, preserve: %s\n",
 			      tlb_lock,
 			      ((tlb_lock & MASK_VICT) >> 26),
 			      (tlb_lock & MASK_PBIT) ? alloc[0] : alloc[1]);
 
 #define MASK_FCSE 0xfe000000
-		em_dump_write("* FCSE PID: %08x: pid: %x\n",
+		em_dump_write("* FCSE PID: %08lx: pid: %lx\n",
 			      fcse, ((fcse & MASK_FCSE) >> 25));
 
-		em_dump_write("* Context ID: %08x\n", context);
+		em_dump_write("* Context ID: %08lx\n", context);
 	}
 	em_dump_write("\n");
 }
 
-static void em_dump_till_end_of_page(unsigned long *sp)
+static void em_dump_till_end_of_page(unsigned long *sp, unsigned long *start)
 {
 	unsigned long *tail = sp;
+	unsigned long *actual_sp = sp;
 	unsigned long stackdata;
 	int i = 0;
 	char buf[17];
@@ -752,16 +754,22 @@ static void em_dump_till_end_of_page(unsigned long *sp)
 		tail = (unsigned long *)((unsigned long) sp + MIN_STACK_LEN);
 
 	buf[16] = 0;
+	sp = start;
 	while (sp < tail) {
 
 		if ((i % 4) == 0) {
-			em_dump_write("%08x : ", (unsigned long)sp);
+			em_dump_write("%p : ", sp);
 		}
 		if (__get_user(stackdata, sp++)) {
 			em_dump_write(" (Bad stack address)\n");
+			if (sp <= actual_sp) {
+				/* retry to dump from the actual sp */
+				sp = actual_sp;
+				continue;
+			}
 			break;
 		}
-		em_dump_write(" 0x%08x", (unsigned long)stackdata);
+		em_dump_write(" 0x%08lx", stackdata);
 		buf[(i % 4) * 4]     = em_convert_char(stackdata);
 		buf[(i % 4) * 4 + 1] = em_convert_char(stackdata >> 8);
 		buf[(i % 4) * 4 + 2] = em_convert_char(stackdata >> 16);
@@ -779,16 +787,20 @@ void em_dump_stack(int argc, char **argv)
 {
 	unsigned long *sp = (unsigned long *)(em_regs->ARM_sp & ~0x03);
 	unsigned long *fp = (unsigned long *)(em_regs->ARM_fp & ~0x03);
+	unsigned long *actual_sp = sp;
 	unsigned long *tail;
 	unsigned long backchain;
 	unsigned long stackdata;
 	int frame = 1;
 
-	tail = sp + PAGE_SIZE / 4;
+	tail = sp + PAGE_SIZE / sizeof(unsigned long*);
 
 	em_dump_write("\n[stack dump]\n");
 
 	backchain = arch_stack_pointer(fp);
+	/* to dump lower address than sp */
+	if (sp > (unsigned long *)LOWER_ADDR_DUMP_SIZE)
+		sp -= LOWER_ADDR_DUMP_SIZE / sizeof(unsigned long*);
 	while (sp < tail) {
 		if (backchain == (unsigned long)sp) {
 			em_dump_write("|");
@@ -809,19 +821,24 @@ void em_dump_stack(int argc, char **argv)
 
 		if (__get_user(stackdata, sp)) {
 			em_dump_write("\n (bad stack address)\n");
+			if (sp < actual_sp) {
+				/* retry to dump from the actual sp */
+				sp = actual_sp;
+				continue;
+			}
 			break;
 		}
 
 		if (((unsigned long)tail-(unsigned long)sp) % 0x10 == 0) {
 			if (frame) {
-				em_dump_write("\n0x%08x:|", sp);
+				em_dump_write("\n0x%p:|", sp);
 				frame = 0;
 			} else {
-				em_dump_write("\n0x%08x: ", sp);
+				em_dump_write("\n0x%p: ", sp);
 			}
 		}
 
-		em_dump_write("0x%08x", stackdata);
+		em_dump_write("0x%08lx", stackdata);
 
 		sp++;
 	}
@@ -829,7 +846,7 @@ void em_dump_stack(int argc, char **argv)
 	em_dump_write("\n");
 
 	em_dump_write("\n #################em_dump_till_end_of_page###########\n");
-	em_dump_till_end_of_page(sp);
+	em_dump_till_end_of_page(actual_sp, sp);
 	em_dump_write("\n");
 }
 
@@ -899,7 +916,7 @@ void em_show_syndrome(void)
 		far = tsk->thread.address;
 		inf = fsr_info + (fsr & 15) + ((fsr & (1 << 10)) >> 6);
 
-		em_dump_write("%s (0x%03x) at 0x%08lx\n",
+		em_dump_write("%s (0x%03lx) at 0x%08lx\n",
 			      inf->name, fsr, far);
 
 		break;
@@ -948,13 +965,13 @@ static void dump_only_insns(int disasm_size, unsigned long **disasm_point)
 
 		/* ARM instructions */
 		if (!(em_regs->ARM_cpsr & PSR_T_BIT)) {
-			em_dump_write("0x%08x:\t%08x \n", point, insn);
+			em_dump_write("0x%p:\t%08lx \n", point, insn);
 		}
 		else { /* Thumb2 instructions */
 			unsigned long tmp_insn = insn & 0xffff;
-			em_dump_write("0x%08x:\t%04x ", point, tmp_insn);
+			em_dump_write("0x%p:\t%04lx ", point, tmp_insn);
 			tmp_insn = ((insn >> 16)& 0xffff);
-			em_dump_write("%04x\n", tmp_insn);
+			em_dump_write("%04lx\n", tmp_insn);
 		}
 		point++;
 	}
@@ -1055,13 +1072,13 @@ void em_disasm_arm(int argc, char **argv, int *disasm_size, unsigned long **disa
 
 				/* ARM instructions */
 				if (!(em_regs->ARM_cpsr & PSR_T_BIT)) {
-					em_dump_write("0x%08x:\t%08x \n", point, insn);
+					em_dump_write("0x%p:\t%08lx \n", point, insn);
 				}
 				else { /* Thumb2 instructions */
 					unsigned long tmp_insn = insn & 0xffff;
-					em_dump_write("0x%08x:\t%04x ", point, tmp_insn);
+					em_dump_write("0x%p:\t%04lx ", point, tmp_insn);
 					tmp_insn = ((insn >> 16)& 0xffff);
-					em_dump_write("%04x\n", tmp_insn);
+					em_dump_write("%04lx\n", tmp_insn);
 				}
 				point++;
 			}
@@ -1088,7 +1105,7 @@ void em_disasm_arm(int argc, char **argv, int *disasm_size, unsigned long **disa
 	}
 
 	while (point <= end_addr) {
-		em_dump_write("0x%08x:\t", point);
+		em_dump_write("0x%p:\t", point);
 		if (__get_user(insn, point)) {
 			em_dump_write("(bad data address)\n");
 			point++;
@@ -1113,13 +1130,13 @@ void em_disasm_arm(int argc, char **argv, int *disasm_size, unsigned long **disa
 
 				/* ARM instructions */
 				if (!(em_regs->ARM_cpsr & PSR_T_BIT)) {
-					em_dump_write("0x%08x:\t%08x \n", point, insn);
+					em_dump_write("0x%p:\t%08lx \n", point, insn);
 				}
 				else { /* Thumb2 instructions */
 					unsigned long tmp_insn = insn & 0xffff;
-					em_dump_write("0x%08x:\t%04x ", point, tmp_insn);
+					em_dump_write("0x%p:\t%04lx ", point, tmp_insn);
 					tmp_insn = ((insn >> 16)& 0xffff);
-					em_dump_write("%04x\n", tmp_insn);
+					em_dump_write("%04lx\n", tmp_insn);
 				}
 				point++;
 			}

@@ -268,4 +268,8 @@ extern	MV_U32						gu32_galois_pcie_ioremap_base;
 
 #endif	/* __MEMIO_SOCKET || __MEMIO_PCIE || __MEMIO_DIRECT	*/
 
+int addr_check_normal_world(unsigned long addr, long size);
+int addr_check_normal_world_noncache(unsigned long addr, long size);
+
+
 #endif	/* __GALOIS_IO_H__ */

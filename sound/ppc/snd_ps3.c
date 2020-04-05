@@ -1,6 +1,6 @@
 /*
  * Audio support for PS3
- * Copyright (C) 2007 Sony Computer Entertainment Inc.
+ * Copyright (C) 2007 Sony Interactive Entertainment Inc.
  * All rights reserved.
  * Copyright 2006, 2007 Sony Corporation
  *
@@ -1157,5 +1157,5 @@ module_exit(snd_ps3_exit);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("PS3 sound driver");
-MODULE_AUTHOR("Sony Computer Entertainment Inc.");
+MODULE_AUTHOR("Sony Interactive Entertainment Inc.");
 MODULE_ALIAS(PS3_MODULE_ALIAS_SOUND);

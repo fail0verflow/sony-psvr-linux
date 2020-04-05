@@ -162,10 +162,3 @@ HRESULT AMPMsgQ_Init(AMPMsgQ_t * pAMPMsgQ, UINT q_length)
 
 	return S_OK;
 }
-
-void AMPMsgQ_Post(AMPMsgQ_t *pMsgQ, INT id)
-{
-	MV_CC_MSG_t msg = {0,};
-	msg.m_MsgID = (1 << id);
-	AMPMsgQ_Add(pMsgQ, &msg);
-}

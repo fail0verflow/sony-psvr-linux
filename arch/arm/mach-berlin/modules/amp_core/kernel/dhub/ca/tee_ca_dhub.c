@@ -37,6 +37,7 @@
 #include "tee_client_api.h"
 #include "tee_ca_dhub.h"
 #include "dhub_cmd.h"
+#include "galois_io.h"
 
 
 #define bTST(x, b)      (((x) >> (b)) & 1)
@@ -204,6 +205,10 @@ UNSG32 tz_dhub_channel_write_cmd(
     TEEC_Result result;
     TEEC_Operation operation;
 
+	if( addr_check_normal_world_noncache(addr,size) != 0 ) {
+		return 0;
+	}
+
     operation.paramTypes = TEEC_PARAM_TYPES(
             TEEC_VALUE_INPUT,
             TEEC_VALUE_INPUT,
@@ -247,6 +252,10 @@ void tz_dhub_channel_generate_cmd(
 {
     TEEC_Result result;
     TEEC_Operation operation;
+
+	if( addr_check_normal_world(addr,size) != 0 ) {
+		return;
+	}
 
     if(!pData)
         return;

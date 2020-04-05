@@ -1,7 +1,7 @@
 /*
  *  PS3 hvcall interface.
  *
- *  Copyright (C) 2006 Sony Computer Entertainment Inc.
+ *  Copyright (C) 2006 Sony Interactive Entertainment Inc.
  *  Copyright 2006 Sony Corp.
  *  Copyright 2003, 2004 (c) MontaVista Software, Inc.
  *

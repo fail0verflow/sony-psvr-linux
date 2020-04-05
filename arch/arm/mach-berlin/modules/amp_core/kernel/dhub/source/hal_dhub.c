@@ -500,44 +500,6 @@ void	hbo_queue_clear_done(
 }
 
 /******************************************************************************
-*	Function: hbo_queue_read
-*	Description: Read a number of 64b data & pop FIFO from HBO SRAM.
-*	Return:	UNSG32		Number of 64b data being read (=n), or (when cfgQ==NULL)
-*				0 if there're not sufficient data in FIFO
-*******************************************************************************/
-UNSG32	hbo_queue_read(
-		void	*hdl,		/*	Handle to HDL_hbo */
-		SIGN32	id,		/*	Queue ID in $HBO */
-		SIGN32	n,		/*	Number 64b entries to read */
-		T64b	data[],		/*	To receive read data */
-		UNSG32	*ptr		/*	Pass in current FIFO pointer (in 64b word),
-						& receive updated new pointer,
-						Pass NULL to read from HW
-						*/
-		)
-{
-	HDL_hbo				*hbo = (HDL_hbo*)hdl;
-    SIGN32 i;
-	UNSG32 p, base, depth;
-
-	base = hbo->mem + hbo->base[id]; depth = hbo->fifoCtl.depth[id];
-	i = hbo_queue_query(hdl, id, SemaQueryMap_ADDR_master_consumer, &p);
-	if (i < n)
-		return 0;
-
-	if (ptr) p = *ptr;
-	for (i = 0; i < n; i ++) {
-		IO32RD(data[i][0], base + p*8);
-		IO32RD(data[i][1], base + p*8 + 4);
-		ModInc(p, 1, depth);
-				}
-	hbo_queue_pop(hdl, id, n);
-	if (ptr) *ptr = p;
-	return n;
-	/**	ENDOFFUNCTION: hbo_queue_read **/
-}
-
-/******************************************************************************
 *	Function: hbo_queue_write
 *	Description: Write a number of 64b data & push FIFO to HBO SRAM.
 *	Return:	UNSG32		Number of (adr,pair) added to cfgQ, or (when cfgQ==NULL)
@@ -675,15 +637,15 @@ UNSG32	dhub_channel_cfg(
 	T32dHubChannel_CFG	cfg;
 	UNSG32 i = 0, a, busyStatus, cmdID = dhub_id2hbo_cmdQ(id), dataID = dhub_id2hbo_data(id);
 
-	xdbg ("hal_dhub::  value of id is %0d \n" , id ) ;
-	xdbg ("hal_dhub::  value of baseCmd   is %0d \n" , baseCmd ) ;
-	xdbg ("hal_dhub::  value of baseData  is %0d \n" , baseData ) ;
-	xdbg ("hal_dhub::  value of depthCmd  is %0d \n" , depthCmd ) ;
-	xdbg ("hal_dhub::  value of depthData is %0d \n" , depthData ) ;
-	xdbg ("hal_dhub::  value of MTU       is %0d \n" , MTU ) ;
-	xdbg ("hal_dhub::  value of QOS       is %0d \n" , QoS ) ;
-	xdbg ("hal_dhub::  value of SelfLoop  is %0d \n" , selfLoop ) ;
-	xdbg ("hal_dhub::  value of Enable    is %0d \n" , enable ) ;
+	xdbg ("hal_dhub::  value of id is %0d\n" , id ) ;
+	xdbg ("hal_dhub::  value of baseCmd   is %0d\n" , baseCmd ) ;
+	xdbg ("hal_dhub::  value of baseData  is %0d\n" , baseData ) ;
+	xdbg ("hal_dhub::  value of depthCmd  is %0d\n" , depthCmd ) ;
+	xdbg ("hal_dhub::  value of depthData is %0d\n" , depthData ) ;
+	xdbg ("hal_dhub::  value of MTU       is %0d\n" , MTU ) ;
+	xdbg ("hal_dhub::  value of QOS       is %0d\n" , QoS ) ;
+	xdbg ("hal_dhub::  value of SelfLoop  is %0d\n" , selfLoop ) ;
+	xdbg ("hal_dhub::  value of Enable    is %0d\n" , enable ) ;
 
 	if (!cfgQ) {
 		hbo_queue_enable(hbo,  cmdID, 0, NULL);
@@ -695,7 +657,7 @@ UNSG32	dhub_channel_cfg(
 		//	return 0;
 						}
 	a = dhub->ra + RA_dHubReg_ARR + id*sizeof(SIE_dHubChannel);
-	xdbg ("hal_dhub::  value of Channel Addr    is %0x \n" , a ) ;
+	xdbg ("hal_dhub::  value of Channel Addr    is %0x\n" , a ) ;
 	IO32CFG(cfgQ, i, a + RA_dHubChannel_START, 0);
 
 	cfg.u32 = 0; cfg.uCFG_MTU = MTU; cfg.uCFG_QoS = QoS; cfg.uCFG_selfLoop = selfLoop;
@@ -705,7 +667,7 @@ UNSG32	dhub_channel_cfg(
 		case dHubChannel_CFG_MTU_128byte: dhub->MTUb[id] = 7; break;
 		case dHubChannel_CFG_MTU_1024byte : dhub->MTUb[id] = 10; break;
 						}
-	xdbg ("hal_dhub::  addr of ChannelCFG is %0x data is %0x \n",
+	xdbg ("hal_dhub::  addr of ChannelCFG is %0x data is %0x\n",
 				a + RA_dHubChannel_CFG , cfg.u32  ) ;
 	IO32CFG(cfgQ, i, a + RA_dHubChannel_CFG, cfg.u32);
 
@@ -713,7 +675,7 @@ UNSG32	dhub_channel_cfg(
 				enable, cfgQ ? (cfgQ + i) : NULL);
 	i += hbo_queue_cfg(hbo, dataID, baseData, depthData,
 				enable, cfgQ ? (cfgQ + i) : NULL);
-	xdbg ("hal_dhub::  addr of ChannelEN is %0x data is %0x \n" ,
+	xdbg ("hal_dhub::  addr of ChannelEN is %0x data is %0x\n" ,
 				a + RA_dHubChannel_START , enable  ) ;
 	IO32CFG(cfgQ, i, a + RA_dHubChannel_START, enable);
 
@@ -864,6 +826,10 @@ UNSG32	dhub_channel_write_cmd(
 	SIE_dHubCmd			cmd;
 	SIGN32 i;
 
+	if( addr_check_normal_world(addr,size) != 0 ) {
+		return 0;
+	}
+
 	cmd.ie_HDR.u32dHubCmdHDR_DESC = 0;
 	i = size >> dhub->MTUb[id];
 	if((i << dhub->MTUb[id]) < size)
@@ -896,6 +862,10 @@ void	dhub_channel_generate_cmd(
 	HDL_dhub			*dhub = (HDL_dhub*)hdl;
 	SIE_dHubCmd			cmd;
 	SIGN32 i, *pcmd;
+
+	if( addr_check_normal_world(addr,size) != 0 ) {
+		return;
+	}
 
 	cmd.ie_HDR.u32dHubCmdHDR_DESC = 0;
 	i = size >> dhub->MTUb[id];
@@ -1000,82 +970,6 @@ UNSG32	diag_dhub_channel_big_write_cmd(
 	return (pairs);
 }
 #endif
-/******************************************************************************
-*	Function: dhub_channel_big_write_cmd
-*	Description: Write a sequence of 64b command for a dHub channel.
-*	Return:	UNSG32	-Number of (adr,pair) added to cfgQ if success, or
-*			0 if there're not sufficient space in FIFO
-*******************************************************************************/
-UNSG32	dhub_channel_big_write_cmd(
-		void	*hdl,		/*	Handle to HDL_dhub */
-		SIGN32	id,		/*	Channel ID in $dHubReg */
-		UNSG32	addr,		/*	CMD: buffer address */
-		SIGN32	size,		/*	CMD: number of bytes to transfer */
-		SIGN32	semOnMTU,	/*	CMD: semaphore operation at CMD/MTU (0/1) */
-		SIGN32	chkSemId,	/*	CMD: non-zero to check semaphore */
-		SIGN32	updSemId,	/*	CMD: non-zero to update semaphore */
-		SIGN32	interrupt,	/*	CMD: raise interrupt at CMD finish */
-		T64b	cfgQ[],		/*	Pass NULL to directly update dHub, or
-						Pass non-zero to receive programming sequence
-						in (adr,data) pairs
-						*/
-		UNSG32	*ptr		/*	Pass in current cmdQ pointer (in 64b word),
-						& receive updated new pointer,
-						Pass NULL to read from HW
-						*/
-		)
-{
-	HDL_dhub	*dhub = (HDL_dhub*)hdl;
-	SIGN32 i;
-	SIGN32 j, jj;
-
-	i = size >> dhub->MTUb[id];
-	//size < 64K
-	if ( size<(1<<16) )
-	{
-		j = dhub_channel_write_cmd(hdl, id, addr, size, semOnMTU, chkSemId,
-			updSemId, interrupt, cfgQ, ptr);
-	}
-	else {
-		SIGN32 size0, size1;
-		size0 = 0xffff << dhub->MTUb[id];
-		j = 0;
-
-	//size > 128x64k
-		while ( i > 0xffff )
-		{
-			jj = dhub_channel_write_cmd(hdl, id, addr, size0, semOnMTU,
-				chkSemId, updSemId, 0, cfgQ, ptr);
-
-			if (cfgQ) cfgQ += jj;
-			j += jj;
-
-			i -= 0xffff;
-			size -= size0;
-			addr += size0;
-		}
-
-		if ( (i << dhub->MTUb[id]) == size )
-		{
-			j += dhub_channel_write_cmd(hdl, id, addr, size, semOnMTU, chkSemId,
-				updSemId, interrupt, cfgQ, ptr);
-		}
-		else
-		{
-			size0 = i << dhub->MTUb[id];
-			j += dhub_channel_write_cmd(hdl, id, addr, size0, semOnMTU, chkSemId,
-				updSemId, 0, cfgQ, ptr);
-			if (cfgQ) cfgQ += j;
-			addr += size0;
-			size1 = size - size0;
-			j += dhub_channel_write_cmd(hdl, id, addr, size1, semOnMTU, chkSemId,
-				updSemId, interrupt, cfgQ, ptr);
-		}
-	}
-
-	return (j);
-}
-
 /**	ENDOFSECTION
 */
 
@@ -1315,52 +1209,6 @@ int BCM_SCHED_AutoPushCmd(UNSG32 QID, UNSG8 uchEnable)
          return 0;
 }
 
-/******************************************************************************************************************
-*       Function: dhub_channel_enable_InverseScan
-*       Description: Inverse scan for dHub channel enable/disable.
-*       Return:                 UNSG32                                          -       Number of (adr,pair) added to cfgQ
-******************************************************************************************************************/
-
-UNSG32 dhub_channel_enable_InverseScan(void             *hdl,		//Dhub Handle
-                                        SIGN32          id,		//Channel Number
-                                        SIGN32          iMode,		//Mode of scanninf
-                                        T64b            cfgQ[])		//Prepared command is update dto cfgQ,
-									//Pass NULL to write directly to Dhub.
-{
-#if (BERLIN_CHIP_VERSION >= BERLIN_BG2_CT)
-        HDL_dhub                        *dhub = (HDL_dhub*)hdl;
-        T32dHubChannel_CFG      cfg;
-        UNSG32 i = 0, a;
-        a = dhub->ra + RA_dHubReg_ARR + id*sizeof(SIE_dHubChannel);
-
-		//Get the configuration of channel
-        getDhubChannelInfo(hdl, id, &cfg);
-
-        switch(iMode)
-        {
-                        //Normal Scanning
-                case 0:
-                        cfg.uCFG_hScan = 0; cfg.uCFG_vScan = 0;
-                        break;
-                        //Only H inverse scan
-                case 1:
-                        cfg.uCFG_hScan = 1;
-                        break;
-                        //Only V inverse Scan
-                case 2:
-                        cfg.uCFG_vScan = 1;
-                        break;
-                case 3:
-                        //Both HV inverse
-                        cfg.uCFG_hScan = 1; cfg.uCFG_vScan = 1;
-                        break;
-        }
-
-        IO32CFG(cfgQ, i, a + RA_dHubChannel_CFG, cfg.u32);
-        return i;
-#endif
-}
-
 int BCM_SCHED_PushCmd(UNSG32 QID, UNSG32 *pCmd, UNSG32 *cfgQ)
 {
 	UNSG32 value, addr, j;
@@ -1375,27 +1223,23 @@ int BCM_SCHED_PushCmd(UNSG32 QID, UNSG32 *pCmd, UNSG32 *cfgQ)
 	    }
 	}
 
-	if (pCmd) {
-                j = 0;
-		addr = QID * 4 * 2;
-                if (cfgQ) {
-                    cfgQ[0] = pCmd[0];
-                    cfgQ[1] = MEMMAP_AVIO_BCM_REG_BASE + addr;
-                    cfgQ[2] = pCmd[1];
-                    cfgQ[3] = MEMMAP_AVIO_BCM_REG_BASE + addr + 4;
-                } else {
+	addr = QID * 4 * 2;
+	if (cfgQ) {
+		cfgQ[0] = pCmd[0];
+		cfgQ[1] = MEMMAP_AVIO_BCM_REG_BASE + addr;
+		cfgQ[2] = pCmd[1];
+		cfgQ[3] = MEMMAP_AVIO_BCM_REG_BASE + addr + 4;
+	} else {
 #ifndef __LINUX_KERNEL__
-                    MV_OSAL_Mutex_Lock(gBCM_SCHED_lock);
+		MV_OSAL_Mutex_Lock(gBCM_SCHED_lock);
 #endif
-	            GA_REG_WORD32_WRITE(MEMMAP_AVIO_BCM_REG_BASE + addr, pCmd[0]);
-	            GA_REG_WORD32_WRITE(MEMMAP_AVIO_BCM_REG_BASE + addr + 4, pCmd[1]);
+		GA_REG_WORD32_WRITE(MEMMAP_AVIO_BCM_REG_BASE + addr, pCmd[0]);
+		GA_REG_WORD32_WRITE(MEMMAP_AVIO_BCM_REG_BASE + addr + 4, pCmd[1]);
 #ifndef __LINUX_KERNEL__
-                    MV_OSAL_Mutex_Unlock(gBCM_SCHED_lock);
+		MV_OSAL_Mutex_Unlock(gBCM_SCHED_lock);
 #endif
-                }
-                j = 2;
 	}
-
+	j = 2;
         return j;
 }
 
@@ -1642,30 +1486,3 @@ void dhub_channel_clear_seq(void *hdl, SIGN32 id, VIP_BCMBUF *pbcmbuf)
 
 /**	ENDOFFILE: hal_dhub.c
  */
-
-#ifdef __LINUX_KERNEL__
-#include <linux/module.h>
-EXPORT_SYMBOL(dhub2d_channel_cfg);
-EXPORT_SYMBOL(dhub_channel_big_write_cmd);
-EXPORT_SYMBOL(dhub_channel_write_cmd);
-EXPORT_SYMBOL(semaphore_intr_enable);
-EXPORT_SYMBOL(semaphore_cfg);
-EXPORT_SYMBOL(dhub_semaphore);
-EXPORT_SYMBOL(dhub_channel_cfg);
-EXPORT_SYMBOL(dhub_channel_generate_cmd);
-EXPORT_SYMBOL(dhub_channel_clear_done);
-EXPORT_SYMBOL(dhub_channel_enable);
-EXPORT_SYMBOL(dhub_channel_clear);
-EXPORT_SYMBOL(dhub_hdl);
-EXPORT_SYMBOL(semaphore_chk_full);
-EXPORT_SYMBOL(semaphore_clr_full);
-EXPORT_SYMBOL(semaphore_pop);
-EXPORT_SYMBOL(BCM_SCHED_PushCmd);
-EXPORT_SYMBOL(BCM_SCHED_GetEmptySts);
-EXPORT_SYMBOL(hbo_queue_clear);
-EXPORT_SYMBOL(hbo_queue_enable);
-EXPORT_SYMBOL(hbo_queue_clear_done);
-EXPORT_SYMBOL(dhub2d_hdl);
-EXPORT_SYMBOL(BCM_SCHED_AutoPushCmd);
-EXPORT_SYMBOL(dhub_channel_enable_InverseScan);
-#endif

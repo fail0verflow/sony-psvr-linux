@@ -1,7 +1,7 @@
 /*
  * PS3 Storage Devices
  *
- * Copyright (C) 2007 Sony Computer Entertainment Inc.
+ * Copyright (C) 2007 Sony Interactive Entertainment Inc.
  * Copyright 2007 Sony Corp.
  *
  * This program is free software; you can redistribute it and/or modify it

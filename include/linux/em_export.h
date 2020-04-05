@@ -57,8 +57,8 @@
 
 struct pt_regs;
 typedef void (*em_callback_t)(struct pt_regs *regs, void *arg);
-typedef int (*em_printk_t)(const char *fmt, ...);
-typedef int (*em_printk_open_t)(void);
+typedef int (*em_printk_t)(const char *fmt, ...) __attribute__((format (printf,1,2)));
+typedef int (*em_printk_open_t)(int encrypted);
 typedef int (*em_printk_close_t)(void);
 
 extern void *em_register_usermode_callback(em_callback_t func, void *arg);

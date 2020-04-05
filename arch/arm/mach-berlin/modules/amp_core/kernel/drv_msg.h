@@ -54,7 +54,6 @@ INT AMPMsgQ_DequeueRead(AMPMsgQ_t * pMsgQ, MV_CC_MSG_t * pMsg);
 INT AMPMsgQ_Fullness(AMPMsgQ_t * pMsgQ);
 HRESULT AMPMsgQ_Init(AMPMsgQ_t * pAMPMsgQ, UINT q_length);
 HRESULT AMPMsgQ_Destroy(AMPMsgQ_t * pMsgQ);
-void AMPMsgQ_Post(AMPMsgQ_t *pMsgQ, INT id);
 HRESULT AMPMsgQ_Add(AMPMsgQ_t * pMsgQ, MV_CC_MSG_t * pMsg);
 HRESULT AMPMsgQ_ReadTry(AMPMsgQ_t * pMsgQ, MV_CC_MSG_t * pMsg);
 HRESULT AMPMsgQ_ReadFinish(AMPMsgQ_t * pMsgQ);

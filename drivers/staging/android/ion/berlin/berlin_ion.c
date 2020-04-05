@@ -347,12 +347,13 @@ size_t berlin_get_heap_size(int heap_id)
 {
 	return (berlin_info->heaps_data + heap_id)->size;
 }
-
+EXPORT_SYMBOL(berlin_get_heap_size);
 
 size_t berlin_get_heap_addr(int heap_id)
 {
 	return (berlin_info->heaps_data + heap_id)->base;
 }
+EXPORT_SYMBOL(berlin_get_heap_addr);
 
 
 int berlin_get_heap_print_details(void)

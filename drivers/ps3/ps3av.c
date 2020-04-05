@@ -1,7 +1,7 @@
 /*
  *  PS3 AV backend support.
  *
- *  Copyright (C) 2007 Sony Computer Entertainment Inc.
+ *  Copyright (C) 2007 Sony Interactive Entertainment Inc.
  *  Copyright 2007 Sony Corp.
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -1076,5 +1076,5 @@ module_exit(ps3av_module_exit);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("PS3 AV Settings Driver");
-MODULE_AUTHOR("Sony Computer Entertainment Inc.");
+MODULE_AUTHOR("Sony Interactive Entertainment Inc.");
 MODULE_ALIAS(PS3_MODULE_ALIAS_AV_SETTINGS);

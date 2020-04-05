@@ -1,7 +1,7 @@
 /*
  * udbg debug output routine via GELIC UDP broadcasts
  *
- * Copyright (C) 2007 Sony Computer Entertainment Inc.
+ * Copyright (C) 2007 Sony Interactive Entertainment Inc.
  * Copyright 2006, 2007 Sony Corporation
  * Copyright (C) 2010 Hector Martin <hector@marcansoft.com>
  * Copyright (C) 2011 Andre Heider <a.heider@gmail.com>

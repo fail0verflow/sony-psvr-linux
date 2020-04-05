@@ -137,36 +137,6 @@ static int getDhubCMDDiv(HDL_dhub2d *pdhubHandle)
 }
 
 /******************************************************************************************************************
- *      Function: GetChannelInfo
- *      Description: Get the Dhub configuration of requested channel.
- *      Parameter : pdhubHandle ----- pointer to 2D dhubHandle
- *             IChannel		----- Channel of the dhub
- *             cfg		----- Configuration need to be updated here.
- *      Return:  0 	----	Success
-******************************************************************************************************************/
-int getDhubChannelInfo(HDL_dhub2d *pdhubHandle, SIGN32 IChannel, T32dHubChannel_CFG *cfg)
-{
-#if (BERLIN_CHIP_VERSION >= BERLIN_BG2_CT)
-       DHUB_channel_config *dhub_config;
-		//Get the Dhub Config array from the received handle
-       if(pdhubHandle == &VPP_dhubHandle)
-       {
-               dhub_config = VPP_config;
-       }
-       if(pdhubHandle == &AG_dhubHandle)
-       {
-               dhub_config = AG_config;
-       }
-		//Update the MTU, QOS and self loop paramteres.
-       cfg->uCFG_MTU = dhub_config[IChannel].chanMtuSize;
-       cfg->uCFG_QoS =  dhub_config[IChannel].chanQos;
-       cfg->uCFG_selfLoop = dhub_config[IChannel].chanSelfLoop;
-
-       return 0;
-#endif
-}
-
-/******************************************************************************************************************
  *	Function: DhubInitialization
  *	Description: Initialize DHUB .
  *	Parameter : cpuId ------------- cpu ID

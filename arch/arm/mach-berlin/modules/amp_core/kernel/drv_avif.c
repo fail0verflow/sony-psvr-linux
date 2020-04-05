@@ -92,8 +92,11 @@ static void HdmirxHandle(AVIF_CTX *hAvifCtx, UINT32 hdmi_port)
 
     UINT8 en0, en1, en2, en3;
     INT hrx_intr = 0xff;
+    INT hrx_hdcp_intr = 0xff;
+
     UINT32 hrxsts0, hrxsts1, hrxen0, hrxen1;
     UINT32 chip_rev;
+    UINT32 hdcp_msg_id;
 
     if ((hdmi_port >= 0) && (hdmi_port <= 3)) {
         port_offset = (hdmi_port * AVIF_HRX_BASE_OFFSET) << 2;
@@ -127,6 +130,19 @@ static void HdmirxHandle(AVIF_CTX *hAvifCtx, UINT32 hdmi_port)
     //printk(KERN_ERR"@port:%d intr regs[0-4] = 0x%x, interrupt_mask_regs[0-4]=%x",
      //   hrx_port, stat0|stat1<<8|stat2<<16|stat3<<24, en0 | en1<<8|en2<<16|en3<<24);
     hrx_intr = 0xff;
+    hrx_hdcp_intr = 0xff;
+
+    if((en3 & HDMI_RX_INT_WR_MSSG_STARTED)) {
+        GA_REG_WORD32_READ(port_offset+RA_HDRX_HDCP_WR_FIFO, &hdcp_msg_id);
+        if ((hdcp_msg_id & 0xFF) == 0x02) {
+            GA_REG_WORD32_WRITE (0xF7EA01E4, 0x81);
+        }
+        hrx_hdcp_intr = HDMIRX_INTR_HDCP_2X;
+        GA_REG_WORD32_READ(port_offset+RA_HDRX_INTR_EN, &hrxen0);
+        hrxen0 =  hrxen0 & ~(HDMI_RX_INT_WR_MSSG_STARTED << 24);
+        GA_REG_WORD32_WRITE((port_offset+RA_HDRX_INTR_EN),hrxen0);
+    }
+
     if ((en2 & (HDMI_RX_INT_VRES_CHG | HDMI_RX_INT_HRES_CHG)) ||
            (en3 & (HDMI_RX_INT_5V_PWR | HDMI_RX_INT_CLOCK_CHANGE))) {
         hrx_intr = HDMIRX_INTR_SYNC;
@@ -149,12 +165,11 @@ static void HdmirxHandle(AVIF_CTX *hAvifCtx, UINT32 hdmi_port)
         GA_REG_WORD32_READ(port_offset+RA_HDRX_INTR_EN, &hrxen0);
         hrxen0 = hrxen0 & ~(HDMI_RX_INT_GCP_AVMUTE);
         GA_REG_WORD32_WRITE((port_offset+RA_HDRX_INTR_EN),hrxen0);
-    } else if((en3 & HDMI_RX_INT_WR_MSSG_STARTED)) {
-        hrx_intr = HDMIRX_INTR_HDCP_2X;
-        GA_REG_WORD32_READ(port_offset+RA_HDRX_INTR_EN, &hrxen0);
-        hrxen0 =  hrxen0 & ~(HDMI_RX_INT_WR_MSSG_STARTED << 24);
-        GA_REG_WORD32_WRITE((port_offset+RA_HDRX_INTR_EN),hrxen0);
     } else if (en2 & (HDMI_RX_INT_AUTH_STARTED | HDMI_RX_INT_AUTH_COMPLETE)) {
+        if( en2 & HDMI_RX_INT_AUTH_STARTED ) {
+            GA_REG_WORD32_WRITE(port_offset+RA_HDRX_HDCP_BSTATUS, 0x1000);
+            GA_REG_WORD32_WRITE(port_offset+RA_HDRX_HDCP_BCAPS, 0xD0);
+        }
         hrx_intr = HDMIRX_INTR_HDCP;
         GA_REG_WORD32_READ(port_offset+RA_HDRX_INTR_EN, &hrxen0);
         hrxen0 =  hrxen0 & ~(HDMI_RX_INT_AUTH_STARTED << 16);
@@ -204,20 +219,29 @@ static void HdmirxHandle(AVIF_CTX *hAvifCtx, UINT32 hdmi_port)
             GA_REG_WORD32_WRITE(0xF7C80134,hrxen0);
         }
 
-        if(hrx_intr == HDMIRX_INTR_HDCP_2X) {
-            rc = AMPMsgQ_Add(&hAvifCtx->hPEAVIFHDCPMsgQ, &msg);
-            if (rc != S_OK) {
-                amp_error("[AVIF HDCP isr] HDCP MsgQ full\n");
-                return;
-            }
-            up(&hAvifCtx->avif_hdcp_sem);
-        } else {
             rc = AMPMsgQ_Add(&hAvifCtx->hPEAVIFHRXMsgQ, &msg);
             if (rc != S_OK) {
                 amp_error("[AVIF HRX isr] MsgQ full\n");
                 return;
             }
             up(&hAvifCtx->avif_hrx_sem);
+    }
+
+    if(hrx_hdcp_intr != 0xff) {
+        /* process rx intr */
+        MV_CC_MSG_t msg_hdcp = {
+            0,
+            hrx_hdcp_intr,
+            hdmi_port
+        };
+
+        if(hrx_hdcp_intr == HDMIRX_INTR_HDCP_2X) {
+            rc = AMPMsgQ_Add(&hAvifCtx->hPEAVIFHDCPMsgQ, &msg_hdcp);
+            if (rc != S_OK) {
+                amp_error("[AVIF HDCP isr] HDCP MsgQ full\n");
+                return;
+            }
+            up(&hAvifCtx->avif_hdcp_sem);
         }
     }
 
@@ -466,14 +490,16 @@ irqreturn_t amp_devices_avif_isr(int irq, void *dev_id)
                 semaphore_pop(pSemHandle, chanId, 1);
                 semaphore_clr_full(pSemHandle, chanId);
                 if (chanId == channel) {
-				    MV_CC_MSG_t msg = {0 , 0, 0};
+                    MV_CC_MSG_t msg = {0 , 0, 0};
                     aip_avif_resume_cmd(hAvifCtx);
 
-				    msg.m_MsgID = 1 << chanId;
-				    AMPMsgQ_Add(&hAvifCtx->hAIPMsgQ, &msg);
-				    up(&hAvifCtx->aip_sem);
+                    msg.m_MsgID = 1 << chanId;
+                    if(AMPMsgQ_Add(&hAvifCtx->hAIPMsgQ, &msg)==S_OK)
+                        up(&hAvifCtx->aip_sem);
+                    else
+                        amp_trace("msgq overrun!\n");
                 }
-             }
+            }
         }
     }
 #endif
@@ -481,14 +507,15 @@ irqreturn_t amp_devices_avif_isr(int irq, void *dev_id)
 #ifdef CONFIG_MV_AMP_AUDIO_PATH_SPDIF_ENABLE
     if (bTST(instat, avif_dhub_config_ChMap_avif_AUD_RD0))
     {
-		MV_CC_MSG_t msg = {0, 0, 0};
+        MV_CC_MSG_t msg = {0, 0, 0};
         semaphore_pop(pSemHandle, avif_dhub_config_ChMap_avif_AUD_RD0 , 1);
         semaphore_clr_full(pSemHandle, avif_dhub_config_ChMap_avif_AUD_RD0 );
         arc_copy_spdiftx_data(hAvifCtx);
 
-		msg.m_MsgID = 1 << avioDhubChMap_ag_SPDIF_R;
+        msg.m_MsgID = 1 << avioDhubChMap_ag_SPDIF_R;
         send_msg2aout(&msg);
     }
+#endif
 
     //Send VDE interrupt info to AVIF driver
     if(instat0 || instat1) {
@@ -504,10 +531,9 @@ irqreturn_t amp_devices_avif_isr(int irq, void *dev_id)
             }
             atomic_inc(&hAvifCtx->avif_isr_msg_err_cnt);
             return IRQ_HANDLED;
-		}
+        }
         up(&hAvifCtx->avif_sem);
     }
-#endif
     return IRQ_HANDLED;
 }
 
@@ -718,12 +744,15 @@ VOID send_msg2avif(MV_CC_MSG_t *pMsg)
     } else {
         pMsg->m_MsgID = (1 << avif_dhub_config_ChMap_avif_AUD_WR0_MAIN);
     }
-    AMPMsgQ_Add(&hAvifCtx->hAIPMsgQ, pMsg);
-    up(&hAvifCtx->aip_sem);
+    if (AMPMsgQ_Add(&hAvifCtx->hAIPMsgQ, pMsg)==S_OK)
+		up(&hAvifCtx->aip_sem);
+	else
+		amp_trace("msg overrun (avif)\n");
 }
 #endif
 
 #ifdef CONFIG_MV_AMP_COMPONENT_AVIN_ENABLE
+#ifdef CONFIG_MV_AMP_AUDIO_PATH_SPDIF_ENABLE
 VOID arc_copy_spdiftx_data(AVIF_CTX *hAvifCtx)
 {
     AOUT_DMA_INFO *p_dma_info;
@@ -760,6 +789,7 @@ VOID arc_copy_spdiftx_data(AVIF_CTX *hAvifCtx)
 	}
 	return;
 }
+#endif
 
 void aip_avif_start_cmd(AVIF_CTX *hAvifCtx, INT *aip_info, void *param)
 {

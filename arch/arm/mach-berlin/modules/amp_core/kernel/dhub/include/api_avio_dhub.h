@@ -79,8 +79,6 @@ void DhubInitialization(SIGN32 cpuId, UNSG32 dHubBaseAddr, UNSG32 hboSramAddr, H
 
 void DhubChannelClear(void *hdl, SIGN32 id, T64b cfgQ[]);
 
-int getDhubChannelInfo(HDL_dhub2d *pdhubHandle, SIGN32 IChannel, T32dHubChannel_CFG *cfg);
-
 void DhubInitialization_128BytesAXIChannel(HDL_dhub2d *pdhubHandle, DHUB_channel_config *dhub_config, UNSG8 uchNumChannels);
 
 void DhubInitialization_128BytesAXI(SIGN32 cpuId, UNSG32 dHubBaseAddr, UNSG32 hboSramAddr, HDL_dhub2d *pdhubHandle, DHUB_channel_config *dhub_config, UNSG8 numOfChans);

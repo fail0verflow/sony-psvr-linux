@@ -668,6 +668,18 @@ void sm_reset_watchdog(int value)
 }
 EXPORT_SYMBOL(sm_reset_watchdog);
 
+void* sm_get_ex_mem_addr(void)
+{
+	return (void*)SOC_ITCM(SM_ITCM_SOC_USE_ADDR);
+}
+EXPORT_SYMBOL(sm_get_ex_mem_addr);
+
+int sm_get_ex_mem_size(void)
+{
+	return SM_ITCM_SOC_USE_SIZE;
+}
+EXPORT_SYMBOL(sm_get_ex_mem_size);
+
 MODULE_AUTHOR("Marvell-Galois");
 MODULE_DESCRIPTION("System Manager Driver");
 MODULE_LICENSE("GPL");

@@ -107,9 +107,12 @@ typedef struct
 } MSG_TV_VIEW;
 
 typedef struct DRIFT_INFO_T{
+	int valid;
 	unsigned long start_latency;
 	int drift_count;
+	long total_drift_count;
 	UINT frame_count;
+	int latency_in_the_expected_range;
 }DRIFT_INFO;
 
 int read_passthru_proc_stat(char *page, char **start, off_t offset,

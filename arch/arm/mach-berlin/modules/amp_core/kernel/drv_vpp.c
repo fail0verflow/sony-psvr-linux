@@ -540,7 +540,7 @@ irqreturn_t amp_devices_vpp_isr(INT irq, VOID *dev_id)
 		if ((jitter > 670) || (jitter < -670) || (isr_time > 1000)) {
 			amp_trace
 			    (" W/[vpp isr] jitter:%6d > +-670 us, instat:0x%x last_instat:"
-			     "0x%0x max_instat:0x%0x, isr_time:%d us last:%d max:%d \n",
+			     "0x%0x max_instat:0x%0x, isr_time:%d us last:%d max:%d\n",
 			     jitter, instat_used,
 			     hVppCtx->amp_irq_profiler.vpp_isr_last_instat,
 			     hVppCtx->amp_irq_profiler.vpp_isr_instat_max, isr_time,

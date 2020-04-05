@@ -336,6 +336,8 @@ static int dwc3_ep0_handle_status(struct dwc3 *dwc,
 	u16			usb_status = 0;
 	__le16			*response_pkt;
 
+	if (ctrl->wLength != 2) return -EINVAL;
+
 	recip = ctrl->bRequestType & USB_RECIP_MASK;
 	switch (recip) {
 	case USB_RECIP_DEVICE:

@@ -1,7 +1,7 @@
 /*
  *  linux/drivers/video/ps3fb.c -- PS3 GPU frame buffer device
  *
- *	Copyright (C) 2006 Sony Computer Entertainment Inc.
+ *	Copyright (C) 2006 Sony Interactive Entertainment Inc.
  *	Copyright 2006, 2007 Sony Corporation
  *
  *  This file is based on :
@@ -1303,5 +1303,5 @@ module_exit(ps3fb_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("PS3 GPU Frame Buffer Driver");
-MODULE_AUTHOR("Sony Computer Entertainment Inc.");
+MODULE_AUTHOR("Sony Interactive Entertainment Inc.");
 MODULE_ALIAS(PS3_MODULE_ALIAS_GPU_FB);

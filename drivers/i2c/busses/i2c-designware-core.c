@@ -142,6 +142,8 @@
 					 DW_IC_TX_ABRT_TXDATA_NOACK | \
 					 DW_IC_TX_ABRT_GCALL_NOACK)
 
+#define DDC_TX_I2C_BaseAddr 0xF7E81800
+
 static char *abort_sources[] = {
 	[ABRT_7B_ADDR_NOACK] =
 		"slave address not acknowledged (7bit mode)",
@@ -307,15 +309,29 @@ int i2c_dw_init(struct dw_i2c_dev *dev)
 	/* set standard and fast speed deviders for high/low periods */
 
 	/* Standard-mode */
-	hcnt = i2c_dw_scl_hcnt(input_clock_khz,
-				40,	/* tHD;STA = tHIGH = 4.0 us */
-				3,	/* tf = 0.3 us */
-				0,	/* 0: DW default, 1: Ideal */
-				0);	/* No offset */
-	lcnt = i2c_dw_scl_lcnt(input_clock_khz,
-				47,	/* tLOW = 4.7 us */
-				3,	/* tf = 0.3 us */
-				0);	/* No offset */
+	if ((u32)dev->base == DDC_TX_I2C_BaseAddr)
+	{
+		/* Used for HDCP2.2 TX DDC, set to 60kHz */
+		hcnt = i2c_dw_scl_hcnt(input_clock_khz,
+					80,	/* tHD;STA = tHIGH = 8.0 us */
+					3,	/* tf = 0.3 us */
+					0,	/* 0: DW default, 1: Ideal */
+					0);	/* No offset */
+		lcnt = i2c_dw_scl_lcnt(input_clock_khz,
+					80,	/* tLOW = 8.0 us */
+					3,	/* tf = 0.3 us */
+					0);	/* No offset */
+	} else {
+		hcnt = i2c_dw_scl_hcnt(input_clock_khz,
+					40,	/* tHD;STA = tHIGH = 4.0 us */
+					3,	/* tf = 0.3 us */
+					0,	/* 0: DW default, 1: Ideal */
+					0);	/* No offset */
+		lcnt = i2c_dw_scl_lcnt(input_clock_khz,
+					47,	/* tLOW = 4.7 us */
+					3,	/* tf = 0.3 us */
+					0);	/* No offset */
+	}
 	dw_writel(dev, hcnt, DW_IC_SS_SCL_HCNT);
 	dw_writel(dev, lcnt, DW_IC_SS_SCL_LCNT);
 	dev_dbg(dev->dev, "Standard-mode HCNT:LCNT = %d:%d\n", hcnt, lcnt);
